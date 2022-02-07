@@ -127,3 +127,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# data and models
+data/
+models/
+
+# scrapbook
+preprocess.ipynb
