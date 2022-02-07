@@ -1,5 +1,4 @@
 #!/bin/bash
-sleep 450m
 folds='1 2 3 4 5'
 for fold_num in $folds
 do
