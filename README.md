@@ -17,7 +17,8 @@ The examples are currently set up to generate a Heart-locating model (heartHunte
 
 <h2>Training examples </h2>
   headHunter
-![headHunter_sag](https://user-images.githubusercontent.com/35701423/152793790-7d8b4f0f-9377-4c70-bbd8-f40a69c1551f.gif)
-  
-  tickerTracker
-![heartHunter_cor](https://user-images.githubusercontent.com/35701423/152793641-78e61f94-59a5-4177-897a-b1fd4ca66dc0.gif)
+
+![headHunter_sag](https://user-images.githubusercontent.com/35701423/152800442-d12a5904-040a-4f6b-a46f-6f47af9a59b9.gif)
+
+  heartHunter
+![heartHunter_cor](https://user-images.githubusercontent.com/35701423/152800422-7b194f56-e602-4e35-8837-0898dc63d26d.gif)
