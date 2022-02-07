@@ -18,7 +18,8 @@ The examples are currently set up to generate a Heart-locating model (heartHunte
 <h2>Training examples </h2>
   headHunter
 
-![headHunter_sag](https://user-images.githubusercontent.com/35701423/152800442-d12a5904-040a-4f6b-a46f-6f47af9a59b9.gif)
+![headHunter_sag](https://user-images.githubusercontent.com/35701423/152800962-62db124e-43fb-4e4a-a1e4-f878198cf716.gif)
 
   heartHunter
+  
 ![heartHunter_cor](https://user-images.githubusercontent.com/35701423/152800422-7b194f56-e602-4e35-8837-0898dc63d26d.gif)
