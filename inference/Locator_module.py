@@ -1,12 +1,16 @@
+from os.path import join
+import argparse as ap
+from tqdm import tqdm
+
 import torch
 import SimpleITK as sitk
-from training.model import Locator, Attention_Locator 
-from utils.utils import *
-from tqdm import tqdm
 import numpy as np
 from skimage.transform import resize
 from scipy.optimize import curve_fit
 from scipy.stats import norm
+
+from training.model import Locator, Attention_Locator 
+from utils.utils import *
 
 class Locator_inference_module:
     def __init__(self, args):
@@ -14,7 +18,9 @@ class Locator_inference_module:
         self.model_dir = args.model_dir
         self.image_dir = args.image_dir
         self.output_dir = args.output_dir
+        try_mkdir(self.output_dir)
         # setup model
+        self.device = 'cuda'
         self.setup_model(args)
         # save in/out resolution settings
         self.Locator_resolution = tuple([int(res) for res in args.Locator_resolution])
@@ -35,7 +41,7 @@ class Locator_inference_module:
             self.model = Locator(filter_factor=1, n_targets=1, in_channels=1)
         for param in self.model.parameters():
             param.requires_grad = False
-        self.model.to('cuda')
+        self.model.to(self.device)
         self.model.load_best(self.model_dir, logger=None)
         self.model.eval()
 
@@ -84,8 +90,8 @@ class Locator_inference_module:
 
             # finally perform window and level contrast preprocessing on CT -> make this a tuneable feature in future
             # NOTE: Images are expected in WM mode -> use level = HU + 1024
-            # ensure to add extra axis for channels
-            im = windowLevelNormalize(im, level=1064, window=1600)[np.newaxis]
+            # ensure to add extra axes for batch and channels
+            im = windowLevelNormalize(im, level=1064, window=1600)[np.newaxis, np.newaxis]
             
             # perform inference
             raw_coords = self.inference(im)
@@ -106,19 +112,24 @@ class Locator_inference_module:
             self._save_coords()
 
     def inference(self, im):
-        print("WARNING: inference stage needs checking!")
-        im = torch.tensor(im, dtype=torch.float).to('cuda')
-        # New inference using fitted gaussian
-        model_output = self.model(im).detach().cpu().numpy()[0]
-        t = np.indices(self.Locator_resolution).astype(np.float)
+        # send image to the GPU
+        im = torch.tensor(im, dtype=torch.float).to(self.device)
+        # New inference using fitted gaussian, come back and better comment this black magic
+        # define function to fit (generates a 3D gaussian for a given point [mu_i, mu_j, mu_k] and returns the flattened array)
         def f(t, mu_i, mu_j, mu_k):
             pos = np.array([mu_i, mu_j, mu_k])
             t = t.reshape((3,) + self.Locator_resolution)
             dist_map = np.sqrt(np.sum([np.power((2*(t[0] - pos[0])), 2), np.power((t[1] - pos[1]), 2), np.power((t[2] - pos[2]), 2)], axis=0))
-            return np.array(norm(scale=10).pdf(dist_map), dtype=np.float).ravel()
+            gaussian = np.array(norm(scale=10).pdf(dist_map), dtype=np.float)
+            return gaussian.ravel()
+        # run model forward to generate heatmap prediction
+        model_output = self.model(im).detach().cpu().numpy()[0]
+        # get starting point for curve-fitting (argmax)
         argmax_pred = np.unravel_index(np.argmax(model_output), self.Locator_resolution)
-        p_opt = curve_fit(f, t.ravel(), model_output.ravel(), p0=argmax_pred)
-        return np.array(p_opt[0], dtype=np.float)
+        # do gaussian fitting
+        t = np.indices(self.Locator_resolution).astype(np.float)
+        p_opt, _ = curve_fit(f, t.ravel(), model_output.ravel(), p0=argmax_pred)
+        return p_opt
     
     def _save_coords(self):
         with open(join(self.output_dir, "coords.pkl"), 'wb') as f:
@@ -128,9 +139,11 @@ class Locator_inference_module:
         # crop the original CT down based upon the Locator CoM coords prediction
         buffers = np.array(self.output_resolution) // 2
         low_crop, hi_crop = self.rescaled_coords - buffers, self.rescaled_coords + buffers
-        # slice original image to crop - NOTE: nifti image indexing order is ap, lr, cc
+        # cast to int for index slice cropping
+        low_crop, hi_crop = np.round(low_crop).astype(int), np.round(hi_crop).astype(int)
+        # slice original image to crop - NOTE: nifti image indexing order is lr, ap, cc
         # TODO: add error case where CoM too close to image boundary
-        self.nii_im = self.nii_im[low_crop[1]:hi_crop[1], low_crop[2]:hi_crop[2], low_crop[0]:hi_crop[0]]
+        self.nii_im = self.nii_im[low_crop[2]:hi_crop[2], low_crop[1]:hi_crop[1], low_crop[0]:hi_crop[0]]
 
 
 def setup_argparse():
@@ -139,7 +152,7 @@ def setup_argparse():
     parser.add_argument("--use_attention", default=True, type=lambda x:str2bool(x), help="Doe the model with attention gates?")
     parser.add_argument("--image_dir", type=str, help="The file path of the folder containing the CT images")
     parser.add_argument("--output_dir", type=str, help="The file path where the cropped subvolumes or found CoM values will be saved to")
-    parser.add_argument("--subvolumes_or_coords", type=str, options=['subvolumes', 'coords'], help="Whether the output should be subvolumes or CoM coordinates")
+    parser.add_argument("--subvolumes_or_coords", type=str, choices=['subvolumes', 'coords'], help="Whether the output should be subvolumes or CoM coordinates")
     parser.add_argument("--Locator_resolution", nargs="+", default=[64,256,256], help="Image resolution for Locator, pass in cc, ap, lr order")
     parser.add_argument("--output_resolution", nargs="+", default=[64,128,128], help="The size of the output crop desired (around identified CoM)")
     args = parser.parse_args()
