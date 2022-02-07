@@ -14,3 +14,10 @@ The examples are currently set up to generate a Heart-locating model (heartHunte
 <li> Preprocessing <br>
 <li> Training <br>
 <li> Inference <br>
+
+<h2>Training examples </h2>
+  headHunter
+![headHunter_sag](https://user-images.githubusercontent.com/35701423/152793542-2e1d51a7-f170-483d-af5f-e5310a551cde.gif)
+  
+  tickerTracker
+![heartHunter_cor](https://user-images.githubusercontent.com/35701423/152793641-78e61f94-59a5-4177-897a-b1fd4ca66dc0.gif)
