@@ -138,11 +138,14 @@ class Locator_inference_module:
     def _apply_crop(self):
         # crop the original CT down based upon the Locator CoM coords prediction
         buffers = np.array(self.output_resolution) // 2
+        # Added error case where CoM too close to image boundary -> clip CoM coord to shift sub-volume inside image volume 
+        orig_im_shape = np.array(self.nii_im.GetSize())[[2,1,0]]
+        self.rescaled_coords = np.clip(self.rescaled_coords, a_min=buffers, a_max=orig_im_shape-buffers)
+        # determine crop boundaries
         low_crop, hi_crop = self.rescaled_coords - buffers, self.rescaled_coords + buffers
         # cast to int for index slice cropping
         low_crop, hi_crop = np.round(low_crop).astype(int), np.round(hi_crop).astype(int)
         # slice original image to crop - NOTE: nifti image indexing order is lr, ap, cc
-        # TODO: add error case where CoM too close to image boundary
         self.nii_im = self.nii_im[low_crop[2]:hi_crop[2], low_crop[1]:hi_crop[1], low_crop[0]:hi_crop[0]]
 
 
