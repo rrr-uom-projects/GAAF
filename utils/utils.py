@@ -7,6 +7,7 @@ from itertools import cycle
 import numpy as np
 import math
 import torch
+import argparse as ap
 
 def k_fold_split_train_val_test(dataset_size, fold_num, seed):
     k = int(fold_num-1)
@@ -127,4 +128,4 @@ def str2bool(v):
     elif v.lower() in ('no', 'false', 'f', 'n', '0'):
         return False
     else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
+        raise ap.ArgumentTypeError('Boolean value expected.')
