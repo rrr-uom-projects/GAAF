@@ -40,11 +40,19 @@ class RunningAverage:
         self.count = 0
         self.sum = 0
         self.avg = 0
+        self.old_avg = 0
 
     def update(self, value, n=1):
+        """
+        Use Welford's method to compute running average
+        Description here: https://www.johndcook.com/blog/standard_deviation/
+        Welford's method is more numerically stable, without requiring two passes
+        """
         self.count += n
-        self.sum += value * n
-        self.avg = self.sum / self.count
+        if self.count == 1:
+            self.avg = self.old_avg = value
+        else:
+            self.avg = self.old_avg + (value - self.old_avg)/self.count
 
 def save_checkpoint(state, is_best, checkpoint_dir, logger=None):
     def log_info(message):
