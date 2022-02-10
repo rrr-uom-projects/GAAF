@@ -52,7 +52,8 @@ class RunningAverage:
         if self.count == 1:
             self.avg = self.old_avg = value
         else:
-            self.avg = self.old_avg + (value - self.old_avg)/self.count
+            self.avg = self.old_avg + (n*value - n*self.old_avg)/self.count
+            self.old_avg = self.avg
 
 def save_checkpoint(state, is_best, checkpoint_dir, logger=None):
     def log_info(message):
