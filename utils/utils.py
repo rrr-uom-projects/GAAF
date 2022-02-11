@@ -14,11 +14,6 @@ def k_fold_split_train_val_test(dataset_size, fold_num, seed):
     train_ims, val_ims, test_ims = math.floor(dataset_size*0.7), math.floor(dataset_size*0.1), math.ceil(dataset_size*0.2)
     if dataset_size - (train_ims+val_ims+test_ims) == 1:
         val_ims += 1 # put the extra into val set
-    try:
-        assert(train_ims+val_ims+test_ims == dataset_size)
-    except AssertionError:
-        print("Check the k fold data splitting, something's dodgy...")
-        exit(1)
     train_inds, val_inds, test_inds = [], [], []
     # initial shuffle
     np.random.seed(seed)
