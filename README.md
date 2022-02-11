@@ -28,13 +28,13 @@ git clone git@github.com:rrr-uom-projects/AutoGAF.git
     - Update the arguments and run ```run_preprocessing.sh```.
 2. Training
     - The second stage is to use **AutoGAF** to train your model!
-    - Take a look at ```run_training.sh```. This shell script will run the training. In this script you can specify a load of different choices to customise your model. The most important of these are checkpoint_dir (where to save your model), image_dir (where the preprocessed images from stage 1 are saved) and CoM_targets (where the centre-of_mass targets from stage 1 are saved). If training with a smaller GPU (or larger resolution images) you may need to turn down the training and validation batch sizes.
+    - Take a look at ```run_training.sh```. This shell script will run the training. In this script you can specify a load of different choices to customise your model. The most important of these are model_dir (where to save your model), image_dir (where the preprocessed images from stage 1 are saved) and CoM_targets_dir (where the centre-of_mass targets from stage 1 are saved). If training with a smaller GPU (or larger resolution images) you may need to turn down the training and validation batch sizes.
     - Update the arguments and run ```run_training.sh```
 3. Inference
     - Now you've successfully trained a model, use **AutoGAF** to do end-to-end inference!
-    - ```run_inference.sh``` is what you'll want for this. Specify the model_dir, and model-specific arguments (as in stage 2). Here you want to set image_dir to the directory containing your nifti images for location-finding and output_dir to the desired location to save the output cropped images.
-    - Most importantly you will also need to specify output_size. This is the size of the subvolume you wish the inference module to crop from your original CT scan.
-    - We provide two modes for inference: "subvolumes" or "coords". In subvolumes mode the inference module will save the cropped images. In coords mode the module will just save the found coords of the centre-of-mass. This will be updated soon!
+    - ```run_inference.sh``` is what you'll want for this. Specify the model_dir, and model-specific arguments (as in stage 2). Here you want to set in_image_dir to the directory containing your nifti images for location-finding and out_image_dir to the desired location to save the output cropped images.
+    - Most importantly you will also need to specify cropped_image_resolution. This is the size of the subvolume you wish the inference module to crop from your original CT scan.
+    - We provide two modes for inference: "subvolumes" or "coords". In subvolumes mode the inference module will save the cropped images. In coords mode the module will just save the found coords of the centre-of-mass. This will be updated soon to include a setting for both which is probably the most useful!
     - Update the arguments and run ```run_inference.sh```
 
 ## Some examples of **AutoGAF** training in action
