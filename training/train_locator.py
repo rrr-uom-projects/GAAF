@@ -19,8 +19,8 @@ from utils.utils import *
 class train_locator():
     def __init__(self, args):
         # decide checkpoint directory
-        try_mkdir(args.checkpoint_dir)
-        self.checkpoint_dir = join(args.checkpoint_dir, "fold"+str(args.fold_num))
+        try_mkdir(args.model_dir)
+        self.checkpoint_dir = join(args.model_dir, "fold"+str(args.fold_num))
         
         # Create main logger
         self.logger = get_logger('Locator_Training')
@@ -50,7 +50,7 @@ class train_locator():
         train_inds, val_inds, _ = k_fold_split_train_val_test(dataset_size, fold_num=args.fold_num, seed=args.seed)
 
         # load in the CoM targets
-        with open(args.CoM_targets, 'rb') as f:
+        with open(join(args.CoM_targets_dir, "CoM_targets.pkl"), 'rb') as f:
             CoM_targets = pickle.load(f)
 
         # Create them dataloaders
@@ -79,14 +79,14 @@ class train_locator():
 def setup_argparse():
     parser = ap.ArgumentParser(prog="Main training program for 3D location-finding network \"Locator\"")
     parser.add_argument("--fold_num", choices=[1,2,3,4,5], type=int, help="The fold number for the kfold cross validation")
-    parser.add_argument("--checkpoint_dir", type=str, help="The file path where the model weights will be saved to")
+    parser.add_argument("--model_dir", type=str, help="The file path where the model weights will be saved to")
     parser.add_argument("--use_attention", default=True, type=lambda x:str2bool(x), help="Use model with attention gates?")
+    parser.add_argument("--image_dir", type=str, help="The file path of the folder containing the ct images")
+    parser.add_argument("--CoM_targets_dir", type=str, help="The path of the directory containing the CoM targets")
     parser.add_argument("--train_BS", type=int, default=1, help="The training batch size")
     parser.add_argument("--val_BS", type=int, default=1, help="The validation batch size")
     parser.add_argument("--train_workers", type=int, default=4, help="The no. of training workers")
     parser.add_argument("--val_workers", type=int, default=4, help="The no. of validation workers")
-    parser.add_argument("--image_dir", type=str, help="The file path of the folder containing the ct images")
-    parser.add_argument("--CoM_targets", type=str, help="The file path of the file containing the CoM targets")
     parser.add_argument("--init_lr", type=float, default=0.005, help="The initial learning rate for the Adam optimiser")
     parser.add_argument("--max_num_epochs", type=int, default=1000, help="The maximum number of epochs to train for")
     parser.add_argument("--patience", type=int, default=500, help="Training will stop this many epochs after after the last improvement of the val_loss (or max_num_epochs)")

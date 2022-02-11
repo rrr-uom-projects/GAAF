@@ -15,10 +15,10 @@ from utils.utils import getFiles, windowLevelNormalize, try_mkdir
 class Preprocessor():
     def __init__(self, args):
         # setup paths
-        self.in_image_dir = args.image_dir
-        self.in_struct_dir = args.struct_dir
-        self.output_dir = args.output_dir
-        self.target_dir = args.target_dir
+        self.in_image_dir = args.in_image_dir
+        self.in_struct_dir = args.in_mask_dir
+        self.output_dir = args.out_image_dir
+        self.target_dir = args.CoM_targets_dir
         # try setup output directories
         try_mkdir(dir_name=self.output_dir)
         try_mkdir(dir_name=self.target_dir)
@@ -29,7 +29,7 @@ class Preprocessor():
         # setup dictionary for resize performed (for back translation)
         self.resizes_performed = {}
         # set resolution for locator
-        self.Locator_resolution = tuple([int(res) for res in args.resolution])
+        self.Locator_resolution = tuple([int(res) for res in args.Locator_image_resolution])
         self._check_resolution()
 
     def run_preprocessing(self):
@@ -122,10 +122,10 @@ class Preprocessor():
 
 def setup_argparse():
     parser = ap.ArgumentParser(prog="Preprocessing program for 3D location-finding network \"Locator\"")
-    parser.add_argument("--image_dir", type=str, help="The file path containing the raw .nii images")
-    parser.add_argument("--struct_dir", type=str, help="The file path containing the raw .nii masks")
-    parser.add_argument("--output_dir", type=str, help="The file path where the resampled images will be saved to")
-    parser.add_argument("--target_dir", type=str, help="The file path where the coordinate targets and resize info will be saved")
-    parser.add_argument("--resolution", nargs="+", default=[64,256,256], help="Image resolution for Locator, pass in cc, ap, lr order")
+    parser.add_argument("--in_image_dir", type=str, help="The file path containing the raw .nii images")
+    parser.add_argument("--in_mask_dir", type=str, help="The file path containing the raw .nii masks")
+    parser.add_argument("--out_image_dir", type=str, help="The file path where the resampled images will be saved to")
+    parser.add_argument("--CoM_targets_dir", type=str, help="The file path where the coordinate targets and resize info will be saved")
+    parser.add_argument("--Locator_image_resolution", nargs="+", default=[64,128,128], help="Image resolution for Locator, pass in cc, ap, lr order")
     args = parser.parse_args()
     return args

@@ -1,6 +1,6 @@
 #!/bin/bash
-python3 example_preprocessing.py --image_dir "/data/heartHunter/data/CTs"\
-                                 --struct_dir "/data/heartHunter/data/Structures"\
-                                 --output_dir "/data/heartHunter/data/rescaled_CTs"\
-                                 --target_dir "/data/heartHunter/data/"\
-                                 --resolution 64 128 128
+python3 preprocessing.py --in_image_dir "/data/heartHunter/data/CTs"\
+                         --in_mask_dir "/data/heartHunter/data/Structures"\
+                         --out_image_dir "/data/heartHunter/data/rescaled_CTs"\
+                         --CoM_targets_dir "/data/heartHunter/data"\
+                         --Locator_image_resolution 64 128 128
