@@ -1,4 +1,4 @@
-from ..utils.utils import RunningAverage
+from utils.utils import RunningAverage
 
 import numpy as np ## For generating test data
 import math
