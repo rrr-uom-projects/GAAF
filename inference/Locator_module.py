@@ -13,7 +13,9 @@ from training.model import Locator, Attention_Locator
 from utils.utils import *
 
 class Locator_inference_module:
-    def __init__(self, args):
+    def __init__(self, args, test=False):
+        if test:
+            return
         # setup paths
         self.model_dir = args.model_dir
         self.image_dir = args.in_image_dir
@@ -47,17 +49,14 @@ class Locator_inference_module:
 
     def _check_resolutions(self):
         if not isinstance(self.Locator_resolution, tuple) or len(self.Locator_resolution) != 3:
-            print("Locator_image_resolution argument must be a length-3 tuple -> (cc, ap, lr) voxels")
-            exit()
+            raise ValueError("Locator_image_resolution argument must be a length-3 tuple -> (cc, ap, lr) voxels")
         if not isinstance(self.output_resolution, tuple) or len(self.output_resolution) != 3:
-            print("Locator_image_resolution argument must be a length-3 tuple -> (cc, ap, lr) voxels")
-            exit()
+            raise ValueError("Locator_image_resolution argument must be a length-3 tuple -> (cc, ap, lr) voxels")
 
     def _check_pat_fnames(self):
         for pat_fname in self.pat_fnames:
             if ".nii" not in pat_fname:
-                print(f"Sorry! Inference is currently only written for nifti (.nii) images...\n found: {pat_fname} in --in_image_dir")
-                exit()
+                raise NotImplementedError(f"Sorry! Inference is currently only written for nifti (.nii) images...\n found: {pat_fname} in --in_image_dir")
     
     def _check_im(self, min_val):
         if min_val < 0:
@@ -149,7 +148,7 @@ class Locator_inference_module:
         self.nii_im = self.nii_im[low_crop[2]:hi_crop[2], low_crop[1]:hi_crop[1], low_crop[0]:hi_crop[0]]
 
 
-def setup_argparse():
+def setup_argparse(test_args=None):
     parser = ap.ArgumentParser(prog="Main inference program for 3D location-finding network \"Locator\"")
     parser.add_argument("--model_dir", type=str, help="The file path where the model weights are saved to")
     parser.add_argument("--use_attention", default=True, type=lambda x:str2bool(x), help="Doe the model with attention gates?")
@@ -158,5 +157,5 @@ def setup_argparse():
     parser.add_argument("--inference_mode", type=str, choices=['subvolumes', 'coords'], help="Whether the output should be subvolumes or CoM coordinates")
     parser.add_argument("--Locator_image_resolution", nargs="+", default=[64,256,256], help="Image resolution for Locator, pass in cc, ap, lr order")
     parser.add_argument("--cropped_image_resolution", nargs="+", default=[64,128,128], help="The size of the output crop desired (around identified CoM)")
-    args = parser.parse_args()
+    args = parser.parse_args(test_args) # if test args==None then parse_args will fall back on sys.argv
     return args
