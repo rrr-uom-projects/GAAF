@@ -9,7 +9,7 @@ from skimage.transform import resize
 from scipy.optimize import curve_fit
 from scipy.stats import norm
 
-from training.model import Locator, Attention_Locator 
+from .model import Locator, Attention_Locator 
 from utils.utils import *
 
 class Locator_inference_module:
