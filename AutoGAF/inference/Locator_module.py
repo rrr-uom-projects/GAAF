@@ -9,8 +9,8 @@ from skimage.transform import resize
 from scipy.optimize import curve_fit
 from scipy.stats import norm
 
-from training.model import Locator, Attention_Locator 
-from utils.utils import *
+from AutoGAF.training.model import Locator, Attention_Locator 
+from AutoGAF.utils.utils import *
 
 class Locator_inference_module:
     def __init__(self, args, test=False):
