@@ -18,3 +18,11 @@ def test_check_resolutions():
     inf_module.output_resolution = tuple([int(res) for res in cropped_image_resolution])
     with pytest.raises(ValueError):
         inf_module._check_resolutions()
+
+def test_check_pat_fnames():
+    # create class instance
+    inf_module = Locator_inference_module(args=None, test=True)
+    # test for presence of a non-nifti image
+    inf_module.pat_fnames = ["123.nii","456.nii","789.nrrd","101112.nii"]
+    with pytest.raises(NotImplementedError):
+        inf_module._check_pat_fnames()
