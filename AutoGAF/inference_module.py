@@ -10,7 +10,7 @@ from scipy.optimize import curve_fit
 from scipy.stats import norm
 
 from .model import Locator, Attention_Locator 
-from utils.utils import *
+from .utils import *
 
 class Locator_inference_module:
     def __init__(self, args, test=False):

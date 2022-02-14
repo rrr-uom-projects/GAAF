@@ -1,4 +1,4 @@
-from ..utils.utils import k_fold_split_train_val_test
+from ..AutoGAF.utils import k_fold_split_train_val_test
 
 import random ## For generating test data
 

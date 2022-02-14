@@ -6,8 +6,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from utils import utils
 import time
+from .utils import *
 
 #####################################################################################################
 ######################################## Locator trainer ############################################
@@ -68,7 +68,7 @@ class Locator_trainer:
         Returns:
             True if the training should be terminated immediately, False otherwise
         """
-        train_losses = utils.RunningAverage()
+        train_losses = RunningAverage()
         improved = False        # for early stopping
         self.model.train()      # set the model in training mode
         for batch_idx, sample in enumerate(train_loader):
@@ -135,7 +135,7 @@ class Locator_trainer:
 
     def validate(self):
         self.logger.info('Validating...')
-        val_losses = utils.RunningAverage()
+        val_losses = RunningAverage()
         with torch.no_grad():
             which_to_show = np.random.randint(0, self.val_loader.batch_size)
             for batch_idx, sample in enumerate(self.val_loader):
@@ -234,7 +234,7 @@ class Locator_trainer:
         torch.save(state, init_state_path)
 
     def _save_checkpoint(self, is_best):
-        utils.save_checkpoint({
+        save_checkpoint({
             'epoch': self.num_epoch + 1,
             'num_iterations': self.num_iterations,
             'model_state_dict': self.model.state_dict(),
