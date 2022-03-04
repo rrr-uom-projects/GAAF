@@ -1,4 +1,4 @@
-from preprocessing.preprocess_Locator_data import Preprocessor, setup_argparse
+from GAAF.preprocessing_module import Preprocessor, setup_argparse
 
 args = setup_argparse()
 preprocessor = Preprocessor(args)

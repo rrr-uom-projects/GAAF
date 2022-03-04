@@ -11,10 +11,10 @@ from os.path import join
 import argparse as ap
 import pickle
 
-from training.model import Locator, Attention_Locator
-from training.trainers import Locator_trainer
-from training.dataset import Locator_Dataset
-from utils.utils import *
+from .model import Locator, Attention_Locator
+from .trainers import Locator_trainer
+from .dataset import Locator_Dataset
+from .utils import *
 
 class train_locator():
     def __init__(self, args):
