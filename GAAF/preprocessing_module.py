@@ -1,5 +1,5 @@
 # preprocess_Locator_data.py
-## generates the training data required for AutoGAF
+## generates the training data required for GAAF
 from os.path import join
 import pickle
 import argparse as ap

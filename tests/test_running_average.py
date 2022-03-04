@@ -1,4 +1,4 @@
-from ..AutoGAF.utils import RunningAverage
+from ..GAAF.utils import RunningAverage
 
 import numpy as np ## For generating test data
 import math

@@ -1,5 +1,5 @@
 #!/bin/bash
-python3 AutoGAF/preprocess.py --in_image_dir "/data/heartHunter/data/CTs"\ 
+python3 GAAF/preprocess.py --in_image_dir "/data/heartHunter/data/CTs"\ 
                               --in_mask_dir "/data/heartHunter/data/Structures"\
                               --out_image_dir "/data/heartHunter/data/rescaled_CTs"\
                               --CoM_targets_dir "/data/heartHunter/data"\

@@ -1,5 +1,5 @@
 import pytest
-from ..AutoGAF.inference_module import Locator_inference_module, setup_argparse
+from ..GAAF.inference_module import Locator_inference_module, setup_argparse
 
 def test_check_resolutions():
     # create class instance
