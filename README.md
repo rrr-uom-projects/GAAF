@@ -11,10 +11,10 @@ The examples are currently set up to generate a Heart-locating model (heartHunte
 Quickly and easily train location-finding models in just a few lines of code!
 
 ## Installation
-Install **AutoGAF** by running:
+Install **GAAF** by running:
 
 ```
-git clone git@github.com:rrr-uom-projects/AutoGAF.git
+git clone git@github.com:rrr-uom-projects/GAAF.git
 ```
 
 ## What you'll need
@@ -24,21 +24,21 @@ git clone git@github.com:rrr-uom-projects/AutoGAF.git
 
 ## Instructions
 1. Preprocessing
-    - The first step to use **AutoGAF** is to preprocess your training dataset of images and masks into a format which can be used for training. This should be carried out automatically using **AutoGAF**'s preprocessing module.
+    - The first step to use **GAAF** is to preprocess your training dataset of images and masks into a format which can be used for training. This should be carried out automatically using **GAAF**'s preprocessing module.
     - Check out ```run_preprocessing.sh```. This shell script will run the neccessary preprocessing program. You will need to update the arguments in this script to match the file paths of the directories containing your training images and masks. You will also need to specify your desired output directories. These are the locations where the preprocessed images and centre-of-mass targets for the training processs will be saved. The final argument you need to decide on is the image resolution at which to train your custom location-finding model. The maximum size will vary between training rigs. The current default is (64,128,128) which seems to work okay.
     - Update the arguments and run ```run_preprocessing.sh```.
 2. Training
-    - The second stage is to use **AutoGAF** to train your model!
+    - The second stage is to use **GAAF** to train your model!
     - Take a look at ```run_training.sh```. This shell script will run the training. In this script you can specify a load of different choices to customise your model. The most important of these are model_dir (where to save your model), image_dir (where the preprocessed images from stage 1 are saved) and CoM_targets_dir (where the centre-of_mass targets from stage 1 are saved). If training with a smaller GPU (or larger resolution images) you may need to turn down the training and validation batch sizes.
     - Update the arguments and run ```run_training.sh```
 3. Inference
-    - Now you've successfully trained a model, use **AutoGAF** to do end-to-end inference!
+    - Now you've successfully trained a model, use **GAAF** to do end-to-end inference!
     - ```run_inference.sh``` is what you'll want for this. Specify the model_dir, and model-specific arguments (as in stage 2). Here you want to set in_image_dir to the directory containing your nifti images for location-finding and out_image_dir to the desired location to save the output cropped images.
     - Most importantly you will also need to specify cropped_image_resolution. This is the size of the subvolume you wish the inference module to crop from your original CT scan.
     - We provide two modes for inference: "subvolumes" or "coords". In subvolumes mode the inference module will save the cropped images. In coords mode the module will just save the found coords of the centre-of-mass. This will be updated soon to include a setting for both which is probably the most useful!
     - Update the arguments and run ```run_inference.sh```
 
-## Some examples of **AutoGAF** training in action
+## Some examples of **GAAF** training in action
 - A **headHunter** model looking for the centre-of-mass of the brainstem and parotid glands in HN CT scans
 
 ![headHunter_sag](https://user-images.githubusercontent.com/35701423/152800962-62db124e-43fb-4e4a-a1e4-f878198cf716.gif)
