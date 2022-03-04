@@ -1,5 +1,6 @@
-# AutoGAF: Automatic General Anatomy Finder
+# GAAF: Generalised Automatic Anatomy Finder
 ## A general framework for 3D location-finding in CT scans
+![GAAF_logo](https://user-images.githubusercontent.com/35701423/156757041-887e7937-7e71-4e80-9795-89dc566ae5d7.svg)
 
 The idea of this framework is that it's a fully generalised version of previous specific location-finding models (headHunter, neckNavigator, etc.). With this you can quickly and easily create new location-specific models in just a few lines of code.
 
