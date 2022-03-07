@@ -19,10 +19,26 @@ def test_check_resolutions():
     with pytest.raises(ValueError):
         inf_module._check_resolutions()
 
-def test_check_pat_fnames():
+def test_check_fnames():
     # create class instance
     inf_module = Locator_inference_module(args=None, test=True)
     # test for presence of a non-nifti image
+    inf_module.masks = False
     inf_module.pat_fnames = ["123.nii","456.nii","789.nrrd","101112.nii"]
     with pytest.raises(NotImplementedError):
-        inf_module._check_pat_fnames()
+        inf_module._check_fnames()
+    # test for presence of a non-nifti mask
+    inf_module.masks = True
+    inf_module.pat_fnames = ["123.nii","456.nii","789.nii","101112.nii"]
+    inf_module.mask_fnames = ["101112.npy","789.nii","456.nii","123.nii"]
+    with pytest.raises(NotImplementedError):
+        inf_module._check_fnames()
+    # test non-matching set of fnames
+    inf_module.pat_fnames = ["123.nii","456.nii","789.nii","101112.nii"]
+    inf_module.mask_fnames = ["123.nii","789.nii","456.nii"]
+    with pytest.raises(ValueError):
+        inf_module._check_fnames()
+    # test all good!
+    inf_module.pat_fnames = ["123.nii","456.nii","789.nii"]
+    inf_module.mask_fnames = ["123.nii","789.nii","456.nii"]
+    inf_module._check_fnames()

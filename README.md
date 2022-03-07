@@ -35,7 +35,8 @@ git clone git@github.com:rrr-uom-projects/GAAF.git
     - Now you've successfully trained a model, use **GAAF** to do end-to-end inference!
     - ```run_inference.sh``` is what you'll want for this. Specify the model_dir, and model-specific arguments (as in stage 2). Here you want to set in_image_dir to the directory containing your nifti images for location-finding and out_image_dir to the desired location to save the output cropped images.
     - Most importantly you will also need to specify cropped_image_resolution. This is the size of the subvolume you wish the inference module to crop from your original CT scan.
-    - We provide two modes for inference: "subvolumes" or "coords". In subvolumes mode the inference module will save the cropped images. In coords mode the module will just save the found coords of the centre-of-mass. This will be updated soon to include a setting for both which is probably the most useful!
+    - Inference can now be performed with or without masks of structures. If you'd like masks to be cropped simultaneously with your CT images then include the optional arguments in_mask_dir and out_mask_dir. Note - currently **GAAF** requires nifti masks with the same filenames as the CT images, i.e. image-mask pairs like "in_image_dir/0001.nii" and "in_mask_dir/0001.nii"
+    - Additionally, if you'd also like the raw coordinates found by the CNN to do the cropping, include the optional out_CoMs_dir argument and provide a location where these can be saved to.
     - Update the arguments and run ```run_inference.sh```
 
 ## Some examples of **GAAF** training in action
