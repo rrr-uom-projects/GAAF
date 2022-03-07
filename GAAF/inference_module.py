@@ -18,7 +18,7 @@ class Locator_inference_module:
             return
         # setup paths
         self.model_dir = args.model_dir
-        self.image_dir = args.in_image_dir
+        self.in_image_dir = args.in_image_dir
         self.out_image_dir = args.out_image_dir
         try_mkdir(self.out_image_dir)
         # determine if masks should be involved
@@ -27,7 +27,7 @@ class Locator_inference_module:
             raise ValueError("Make sure to provide both the input and output directories for your masks...")
         elif args.in_mask_dir != "None":
             self.masks = True
-            self.mask_dir = args.in_mask_dir
+            self.in_mask_dir = args.in_mask_dir
             self.out_mask_dir = args.out_mask_dir
             try_mkdir(self.out_mask_dir)
         # setup model
@@ -38,7 +38,9 @@ class Locator_inference_module:
         self.output_resolution = tuple([int(res) for res in args.cropped_image_resolution])
         self._check_resolutions()
         # read in image fnames to run inference over
-        self.pat_fnames = sorted(getFiles(self.image_dir))
+        self.pat_fnames = sorted(getFiles(self.in_image_dir))
+        if self.masks:
+            self.mask_fnames = sorted(getFiles(self.in_mask_dir))
         self._check_fnames()
         # determine if coords output is also desired
         self.store_coords = False
@@ -70,16 +72,15 @@ class Locator_inference_module:
             if ".nii" not in pat_fname:
                 raise NotImplementedError(f"Sorry! Inference is currently only written for nifti (.nii) images...\n found: {pat_fname} in --in_image_dir")
         if self.masks:
-            mask_fnames = sorted(getFiles(self.in_mask_dir))
             # First check all masks in directory are niftis
-            for mask_fname in mask_fnames:
+            for mask_fname in self.mask_fnames:
                 if ".nii" not in mask_fname:
                     raise NotImplementedError(f"Sorry! Inference is currently only written for nifti (.nii) images...\n found: {mask_fname} in --in_mask_dir")
             # now check that all images and masks are in matching pairs
             for pat_fname in self.pat_fnames:
-                if pat_fname not in mask_fnames:
+                if pat_fname not in self.mask_fnames:
                     raise ValueError(f"Whoops, it looks like your images and masks aren't in matching pairs!\n found: {pat_fname} in the image directory, but not in the mask directory...")
-            for mask_fname in mask_fnames:
+            for mask_fname in self.mask_fnames:
                 if mask_fname not in self.pat_fnames:
                     raise ValueError(f"Whoops, it looks like your images and masks aren't in matching pairs!\n found: {pat_fname} in the mask directory, but not in the image directory...")
     
@@ -99,7 +100,7 @@ class Locator_inference_module:
         # perform inference for all images in directory            
         for pat_idx, pat_fname in enumerate(tqdm(self.pat_fnames)):
             # carries out the full Locator inference and cropping process on a single CT image
-            self.nii_im = sitk.ReadImage(join(self.image_dir, pat_fname))
+            self.nii_im = sitk.ReadImage(join(self.in_image_dir, pat_fname))
             self.spacing = self.nii_im.GetSpacing()
 
             # Check im direction etc. here and if flip or rot required
@@ -144,8 +145,8 @@ class Locator_inference_module:
         # perform inference for all images in directory            
         for pat_idx, pat_fname in enumerate(tqdm(self.pat_fnames)):
             # carries out the full Locator inference and cropping process on a single CT image
-            self.nii_im = sitk.ReadImage(join(self.image_dir, pat_fname))
-            self.nii_mask = sitk.ReadImage(join(self.mask_dir, pat_fname))
+            self.nii_im = sitk.ReadImage(join(self.in_image_dir, pat_fname))
+            self.nii_mask = sitk.ReadImage(join(self.in_mask_dir, pat_fname))
             self.spacing = self.nii_im.GetSpacing()
 
             # Check im direction etc. here and if flip or rot required
