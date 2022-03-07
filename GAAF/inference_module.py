@@ -70,7 +70,7 @@ class Locator_inference_module:
             if ".nii" not in pat_fname:
                 raise NotImplementedError(f"Sorry! Inference is currently only written for nifti (.nii) images...\n found: {pat_fname} in --in_image_dir")
         if self.masks:
-            mask_fnames = sorted(getFiles(self.mask_dir))
+            mask_fnames = sorted(getFiles(self.in_mask_dir))
             # First check all masks in directory are niftis
             for mask_fname in mask_fnames:
                 if ".nii" not in mask_fname:
