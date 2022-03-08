@@ -8,14 +8,14 @@ def test_check_resolutions():
     Locator_image_resolution = [64,256,256,1]
     cropped_image_resolution = [64,256,256]
     inf_module.Locator_image_resolution = tuple([int(res) for res in Locator_image_resolution])
-    inf_module.output_image_resolution = tuple([int(res) for res in cropped_image_resolution])
+    inf_module.cropped_image_resolution = tuple([int(res) for res in cropped_image_resolution])
     with pytest.raises(ValueError):
         inf_module._check_resolutions()
     # test too few dims specified
     Locator_image_resolution = [64,256,256]
     cropped_image_resolution = [64,256]
     inf_module.Locator_image_resolution = tuple([int(res) for res in Locator_image_resolution])
-    inf_module.output_image_resolution = tuple([int(res) for res in cropped_image_resolution])
+    inf_module.cropped_image_resolution = tuple([int(res) for res in cropped_image_resolution])
     with pytest.raises(ValueError):
         inf_module._check_resolutions()
 
