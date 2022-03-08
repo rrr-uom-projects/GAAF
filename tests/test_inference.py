@@ -42,3 +42,12 @@ def test_check_fnames():
     inf_module.pat_fnames = ["123.nii","456.nii","789.nii"]
     inf_module.mask_fnames = ["123.nii","789.nii","456.nii"]
     inf_module._check_fnames()
+
+def test_check_im():
+    # create class instance
+    inf_module = Locator_inference_module(args=None, test=True)
+    # check expected cases
+    # 1. image in true Houndfield units
+    assert(inf_module._check_im(min_val=-1024, fname="test"))
+    # 2. image in WM mode adjusted HU (+1024)
+    assert(inf_module._check_im(min_val=0, fname="test") == False)

@@ -45,9 +45,9 @@ def test_check_im():
     preproc_module = Preprocessor(args=None, test=True)
     # check expected cases
     # 1. image in true Houndfield units
-    assert(preproc_module._check_im(min_val=-1024))
+    assert(preproc_module._check_im(min_val=-1024, fname="test"))
     # 2. image in WM mode adjusted HU (+1024)
-    assert(preproc_module._check_im(min_val=0) == False)
+    assert(preproc_module._check_im(min_val=0, fname="test") == False)
 
 def test_check_mask():
     # create class instance

@@ -80,7 +80,7 @@ class Locator_inference_module:
 
             # convert to numpy
             im = sitk.GetArrayFromImage(self.nii_im)
-            if self._check_im(min_val=im.min()):
+            if self._check_im(min_val=im.min(), fname=pat_fname):
                 im += 1024
             im = np.clip(im, 0, 3024)
 
@@ -127,7 +127,7 @@ class Locator_inference_module:
 
             # convert to numpy
             im = sitk.GetArrayFromImage(self.nii_im)
-            if self._check_im(min_val=im.min()):
+            if self._check_im(min_val=im.min(), fname=pat_fname):
                 im += 1024
             im = np.clip(im, 0, 3024)
             mask = sitk.GetArrayFromImage(self.nii_mask)
@@ -223,9 +223,9 @@ class Locator_inference_module:
                 if mask_fname not in self.pat_fnames:
                     raise ValueError(f"Whoops, it looks like your images and masks aren't in matching pairs!\n found: {pat_fname} in the mask directory, but not in the image directory...")
     
-    def _check_im(self, min_val):
+    def _check_im(self, min_val, fname):
         if min_val < 0:
-            print(f"Expected CT in WM mode (min intensity at 0), instead fname: {pat_fname} min at {im.min()} -> adjusting...")
+            print(f"Expected CT in WM mode (min intensity at 0), instead fname: {fname} min at {min_val} -> adjusting...")
             return True
         return False
 
