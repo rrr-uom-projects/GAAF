@@ -34,8 +34,8 @@ class Locator_inference_module:
         self.device = 'cuda'
         self.setup_model(args)
         # save in/out resolution settings
-        self.Locator_resolution = tuple([int(res) for res in args.Locator_image_resolution])
-        self.output_resolution = tuple([int(res) for res in args.cropped_image_resolution])
+        self.Locator_image_resolution = tuple([int(res) for res in args.Locator_image_resolution])
+        self.cropped_image_resolution = tuple([int(res) for res in args.cropped_image_resolution])
         self._check_resolutions()
         # read in image fnames to run inference over
         self.pat_fnames = sorted(getFiles(self.in_image_dir))
@@ -61,35 +61,6 @@ class Locator_inference_module:
         self.model.load_best(self.model_dir, logger=None)
         self.model.eval()
 
-    def _check_resolutions(self):
-        if not isinstance(self.Locator_resolution, tuple) or len(self.Locator_resolution) != 3:
-            raise ValueError("Locator_image_resolution argument must be a length-3 tuple -> (cc, ap, lr) voxels")
-        if not isinstance(self.output_resolution, tuple) or len(self.output_resolution) != 3:
-            raise ValueError("Locator_image_resolution argument must be a length-3 tuple -> (cc, ap, lr) voxels")
-
-    def _check_fnames(self):
-        for pat_fname in self.pat_fnames:
-            if ".nii" not in pat_fname:
-                raise NotImplementedError(f"Sorry! Inference is currently only written for nifti (.nii) images...\n found: {pat_fname} in --in_image_dir")
-        if self.masks:
-            # First check all masks in directory are niftis
-            for mask_fname in self.mask_fnames:
-                if ".nii" not in mask_fname:
-                    raise NotImplementedError(f"Sorry! Inference is currently only written for nifti (.nii) images...\n found: {mask_fname} in --in_mask_dir")
-            # now check that all images and masks are in matching pairs
-            for pat_fname in self.pat_fnames:
-                if pat_fname not in self.mask_fnames:
-                    raise ValueError(f"Whoops, it looks like your images and masks aren't in matching pairs!\n found: {pat_fname} in the image directory, but not in the mask directory...")
-            for mask_fname in self.mask_fnames:
-                if mask_fname not in self.pat_fnames:
-                    raise ValueError(f"Whoops, it looks like your images and masks aren't in matching pairs!\n found: {pat_fname} in the mask directory, but not in the image directory...")
-    
-    def _check_im(self, min_val):
-        if min_val < 0:
-            print(f"Expected CT in WM mode (min intensity at 0), instead fname: {pat_fname} min at {im.min()} -> adjusting...")
-            return True
-        return False
-
     def run_inference(self):
         if self.masks:
             self.run_inference_with_masks()
@@ -109,13 +80,13 @@ class Locator_inference_module:
 
             # convert to numpy
             im = sitk.GetArrayFromImage(self.nii_im)
-            if self._check_im(min_val=im.min()):
+            if self._check_im(min_val=im.min(), fname=pat_fname):
                 im += 1024
             im = np.clip(im, 0, 3024)
 
             # resample to desired size for Locator
             init_shape = np.array(im.shape)
-            im = resize(im, output_shape=self.Locator_resolution, order=3, preserve_range=True, anti_aliasing=True)
+            im = resize(im, output_shape=self.Locator_image_resolution, order=3, preserve_range=True, anti_aliasing=True)
             final_shape = np.array(im.shape)
             resize_performed = final_shape / init_shape
 
@@ -156,14 +127,14 @@ class Locator_inference_module:
 
             # convert to numpy
             im = sitk.GetArrayFromImage(self.nii_im)
-            if self._check_im(min_val=im.min()):
+            if self._check_im(min_val=im.min(), fname=pat_fname):
                 im += 1024
             im = np.clip(im, 0, 3024)
             mask = sitk.GetArrayFromImage(self.nii_mask)
 
             # resample to desired size for Locator
             init_shape = np.array(im.shape)
-            im = resize(im, output_shape=self.Locator_resolution, order=3, preserve_range=True, anti_aliasing=True)
+            im = resize(im, output_shape=self.Locator_image_resolution, order=3, preserve_range=True, anti_aliasing=True)
             final_shape = np.array(im.shape)
             resize_performed = final_shape / init_shape
 
@@ -197,16 +168,16 @@ class Locator_inference_module:
         # define function to fit (generates a 3D gaussian for a given point [mu_i, mu_j, mu_k] and returns the flattened array)
         def f(t, mu_i, mu_j, mu_k):
             pos = np.array([mu_i, mu_j, mu_k])
-            t = t.reshape((3,) + self.Locator_resolution)
+            t = t.reshape((3,) + self.Locator_image_resolution)
             dist_map = np.sqrt(np.sum([np.power((2*(t[0] - pos[0])), 2), np.power((t[1] - pos[1]), 2), np.power((t[2] - pos[2]), 2)], axis=0))
             gaussian = np.array(norm(scale=10).pdf(dist_map), dtype=np.float)
             return gaussian.ravel()
         # run model forward to generate heatmap prediction
         model_output = self.model(im).detach().cpu().numpy()[0]
         # get starting point for curve-fitting (argmax)
-        argmax_pred = np.unravel_index(np.argmax(model_output), self.Locator_resolution)
+        argmax_pred = np.unravel_index(np.argmax(model_output), self.Locator_image_resolution)
         # do gaussian fitting
-        t = np.indices(self.Locator_resolution).astype(np.float)
+        t = np.indices(self.Locator_image_resolution).astype(np.float)
         p_opt, _ = curve_fit(f, t.ravel(), model_output.ravel(), p0=argmax_pred)
         return p_opt
     
@@ -216,7 +187,7 @@ class Locator_inference_module:
 
     def _apply_crop(self, with_mask=False):
         # crop the original CT down based upon the Locator CoM coords prediction
-        buffers = np.array(self.output_resolution) // 2
+        buffers = np.array(self.cropped_image_resolution) // 2
         # Added error case where CoM too close to image boundary -> clip CoM coord to shift sub-volume inside image volume 
         orig_im_shape = np.array(self.nii_im.GetSize())[[2,1,0]]
         self.rescaled_coords = np.clip(self.rescaled_coords, a_min=buffers, a_max=orig_im_shape-buffers)
@@ -228,6 +199,35 @@ class Locator_inference_module:
         self.nii_im = self.nii_im[low_crop[2]:hi_crop[2], low_crop[1]:hi_crop[1], low_crop[0]:hi_crop[0]]
         if with_mask:
             self.nii_mask = self.nii_mask[low_crop[2]:hi_crop[2], low_crop[1]:hi_crop[1], low_crop[0]:hi_crop[0]]
+    
+    def _check_resolutions(self):
+        if not isinstance(self.Locator_image_resolution, tuple) or len(self.Locator_image_resolution) != 3:
+            raise ValueError("Locator_image_resolution argument must be 3 space-separated integers -> cc, ap, lr voxels")
+        if not isinstance(self.cropped_image_resolution, tuple) or len(self.cropped_image_resolution) != 3:
+            raise ValueError("cropped_image_resolution argument must be 3 space-separated integers -> cc, ap, lr voxels")
+
+    def _check_fnames(self):
+        for pat_fname in self.pat_fnames:
+            if ".nii" not in pat_fname:
+                raise NotImplementedError(f"Sorry! Inference is currently only written for nifti (.nii) images...\n found: {pat_fname} in --in_image_dir")
+        if self.masks:
+            # First check all masks in directory are niftis
+            for mask_fname in self.mask_fnames:
+                if ".nii" not in mask_fname:
+                    raise NotImplementedError(f"Sorry! Inference is currently only written for nifti (.nii) images...\n found: {mask_fname} in --in_mask_dir")
+            # now check that all images and masks are in matching pairs
+            for pat_fname in self.pat_fnames:
+                if pat_fname not in self.mask_fnames:
+                    raise ValueError(f"Whoops, it looks like your images and masks aren't in matching pairs!\n found: {pat_fname} in the image directory, but not in the mask directory...")
+            for mask_fname in self.mask_fnames:
+                if mask_fname not in self.pat_fnames:
+                    raise ValueError(f"Whoops, it looks like your images and masks aren't in matching pairs!\n found: {pat_fname} in the mask directory, but not in the image directory...")
+    
+    def _check_im(self, min_val, fname):
+        if min_val < 0:
+            print(f"Expected CT in WM mode (min intensity at 0), instead fname: {fname} min at {min_val} -> adjusting...")
+            return True
+        return False
 
 
 def setup_argparse(test_args=None):
