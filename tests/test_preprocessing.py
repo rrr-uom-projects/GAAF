@@ -9,12 +9,12 @@ def test_check_resolution():
     Locator_image_resolution = [64,256,256,1]
     preproc_module.Locator_image_resolution = tuple([int(res) for res in Locator_image_resolution])
     with pytest.raises(ValueError):
-        preproc_module._check_resolutions()
+        preproc_module._check_resolution()
     # test too few dims specified
     Locator_image_resolution = [64,256]
     preproc_module.Locator_image_resolution = tuple([int(res) for res in Locator_image_resolution])
     with pytest.raises(ValueError):
-        preproc_module._check_resolutions()
+        preproc_module._check_resolution()
 
 def test_check_fnames():
     # create class instance
