@@ -75,7 +75,9 @@ class Locator_inference_module:
             self.spacing = self.nii_im.GetSpacing()
 
             # Check im direction etc. here and if flip or rot required
+            flipped = False
             if(np.sign(self.nii_im.GetDirection()[-1]) == 1):
+                flipped = True
                 self.nii_im = sitk.Flip(self.nii_im, [False, False, True])
 
             # convert to numpy
@@ -98,6 +100,10 @@ class Locator_inference_module:
             # perform inference
             raw_coords = self.inference(im)
             self.rescaled_coords = raw_coords / resize_performed
+
+            # flip the coords back if image and mask were originally flipped
+            if flipped:
+                self.rescaled_coords[0] = self.Locator_image_resolution[0] - self.rescaled_coords[0]
             
             # now either do cropping and save output or simply return coords
             if self.store_coords:
@@ -121,7 +127,9 @@ class Locator_inference_module:
             self.spacing = self.nii_im.GetSpacing()
 
             # Check im direction etc. here and if flip or rot required
+            flipped = False
             if(np.sign(self.nii_im.GetDirection()[-1]) == 1):
+                flipped = True
                 self.nii_im = sitk.Flip(self.nii_im, [False, False, True])
                 self.nii_mask = sitk.Flip(self.nii_mask, [False, False, True])
 
@@ -147,6 +155,10 @@ class Locator_inference_module:
             raw_coords = self.inference(im)
             self.rescaled_coords = raw_coords / resize_performed
             
+            # flip the coords back if image and mask were originally flipped
+            if flipped:
+                self.rescaled_coords[0] = self.Locator_image_resolution[0] - self.rescaled_coords[0]
+
             # now either do cropping and save output or simply return coords
             if self.store_coords:
                 # store coords in dictionary
