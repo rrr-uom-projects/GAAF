@@ -62,12 +62,20 @@ def test_check_mask():
     mask = np.random.uniform(-1, 1, (16,16,16))
     with pytest.raises(ValueError):
         preproc_module._check_mask(mask=mask)
-    # 3. mask contains multiple structures
+    # 3. mask contains multiple structures - but does contain the target_ind
     mask = np.random.uniform(-1, 1, (16,16,16))
     mask[mask<0] = 0
-    mask[mask>0.66] = 1
+    mask[mask>0] = 1
     mask[mask>0.33] = 2
-    mask[mask>0] = 3
+    mask[mask>0.66] = 3
+    mask[2,3,5] = 1
+    with pytest.raises(ValueError):
+        preproc_module._check_mask(mask=mask)
+    # 4. mask contains multiple structures - but does not contain the target_ind
+    mask = np.random.uniform(-1, 1, (16,16,16))
+    mask[mask<0] = 0
+    mask[mask>=0] = 2
+    mask[mask>0.33] = 3
     with pytest.raises(ValueError):
         preproc_module._check_mask(mask=mask)
 

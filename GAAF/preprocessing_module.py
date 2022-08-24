@@ -10,11 +10,12 @@ from skimage.transform import resize
 from scipy.ndimage import center_of_mass
 from tqdm import tqdm
 
-from .utils import getFiles, windowLevelNormalize, try_mkdir
+from utils import getFiles, windowLevelNormalize, try_mkdir
 
 class Preprocessor():
     def __init__(self, args, test=False):
         if test:
+            self.target_ind = 1
             return
         # setup paths
         self.in_image_dir = args.in_image_dir
@@ -39,7 +40,7 @@ class Preprocessor():
         self.target_ind = args.target_ind
 
     def run_preprocessing(self):
-        for pat_idx, (pat_fname, mask_fname) in enumerate(tqdm(zip(self.pat_fnames, self.mask_fnames))):
+        for pat_idx, (pat_fname, mask_fname) in enumerate(tqdm(zip(self.pat_fnames, self.mask_fnames), total=len(self.pat_fnames))):
             # load files
             im = sitk.ReadImage(join(self.in_image_dir, pat_fname))
             mask = sitk.ReadImage(join(self.in_mask_dir, mask_fname))
@@ -124,9 +125,9 @@ class Preprocessor():
 
     def _check_mask(self, mask):
         if mask.min() != 0:
-            raise ValueError("Heyo, we've got a mask issue (min != 0)\nGAAF expects binary masks for the targets with background = 0 and foreground stucture = 1...")
-        if mask.max() != 1:
-            raise ValueError("Heyo, we've got a mask issue (max != 1)\nGAAF expects binary masks for the targets with background = 0 and foreground stucture = 1...")
+            raise ValueError("Heyo, we've got a mask issue (min != 0)\nGAAF expects integer masks for the targets with background = 0 and foreground stucture = target_ind ...")
+        if (mask == self.target_ind).any() == False:
+            raise ValueError("Heyo, we've got a mask issue (target_ind not found in mask)\nGAAF expects integer masks for the targets with background = 0 and foreground stucture = target_ind ...")
 
     def _check_resolution(self):
         if not isinstance(self.Locator_image_resolution, tuple) or len(self.Locator_image_resolution) != 3:
@@ -139,5 +140,6 @@ def setup_argparse():
     parser.add_argument("--out_image_dir", type=str, help="The file path where the resampled images will be saved to")
     parser.add_argument("--CoM_targets_dir", type=str, help="The file path where the coordinate targets and resize info will be saved")
     parser.add_argument("--Locator_image_resolution", nargs="+", default=[64,128,128], help="Image resolution for Locator, pass in cc, ap, lr order")
+    parser.add_argument("--target_ind", type=int, default=1, help="The index of the target structure in the mask")
     args = parser.parse_args()
     return args
