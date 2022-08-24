@@ -1,5 +1,5 @@
 import pytest
-from ..GAAF.inference_module import Locator_inference_module
+from GAAF.inference_module import Locator_inference_module
 
 def test_check_resolutions():
     # create class instance

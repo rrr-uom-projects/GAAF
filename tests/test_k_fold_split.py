@@ -1,4 +1,4 @@
-from ..GAAF.utils import k_fold_split_train_val_test
+from GAAF.utils import k_fold_split_train_val_test
 
 import random ## For generating test data
 
