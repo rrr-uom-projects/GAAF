@@ -62,7 +62,7 @@ class Preprocessor():
             # calculate CoM
             CoM = np.array(center_of_mass(np.array((mask == self.target_ind), dtype=int))) 
             
-            # check size of ct here --> resize to 256^2 in-plane and x cc             
+            # check size of ct here --> resize to desired size if required          
             # resampling
             init_shape = np.array(im.shape)
             im = resize(im, output_shape=self.Locator_image_resolution, order=3, preserve_range=True, anti_aliasing=True)
