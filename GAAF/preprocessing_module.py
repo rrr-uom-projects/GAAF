@@ -35,6 +35,8 @@ class Preprocessor():
         # set resolution for locator
         self.Locator_image_resolution = tuple([int(res) for res in args.Locator_image_resolution])
         self._check_resolution()
+        # set target index
+        self.target_ind = args.target_ind
 
     def run_preprocessing(self):
         for pat_idx, (pat_fname, mask_fname) in enumerate(tqdm(zip(self.pat_fnames, self.mask_fnames))):
@@ -57,7 +59,7 @@ class Preprocessor():
             self._check_mask(mask)
             
             # calculate CoM
-            CoM = np.array(center_of_mass(np.array((mask == 1), dtype=int))) 
+            CoM = np.array(center_of_mass(np.array((mask == self.target_ind), dtype=int))) 
             
             # check size of ct here --> resize to 256^2 in-plane and x cc             
             # resampling
