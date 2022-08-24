@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from GAAF.preprocessing_module import Preprocessor
+from ..preprocessing_module import Preprocessor
 
 def test_check_resolution():
     # create class instance
