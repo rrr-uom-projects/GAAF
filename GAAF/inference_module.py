@@ -237,8 +237,9 @@ class Locator_inference_module:
     
     def _check_im(self, min_val, fname):
         if min_val < 0:
-            print(f"Expected CT in WM mode (min intensity at 0), instead fname: {fname} min at {min_val} -> adjusting...")
-            return True
+            print(f"WARNING: Image {fname} has negative values! This is not supported by the current preprocessing pipeline.\nPlease ensure that your images are in Hounsfield Units (HU) + 1024 (WM mode) and that the minimum value is >= 0")
+            #print(f"Expected CT in WM mode (min intensity at 0), instead fname: {fname} min at {min_val} -> adjusting...")
+            #return True
         return False
 
 
