@@ -33,6 +33,8 @@ class Preprocessor():
         self.CoM_targets = {}
         # setup dictionary for resize performed (for back translation)
         self.resizes_performed = {}
+        # setup dictionary for spacings
+        self.all_spacings = {}
         # set resolution for locator
         self.Locator_image_resolution = tuple([int(res) for res in args.Locator_image_resolution])
         self._check_resolution()
@@ -44,6 +46,7 @@ class Preprocessor():
             # load files
             im = sitk.ReadImage(join(self.in_image_dir, pat_fname))
             mask = sitk.ReadImage(join(self.in_mask_dir, mask_fname))
+            spacing_orig = np.array(im.GetSpacing())[[2,0,1]] # cc ap lr
             assert(im.GetSize() == mask.GetSize())
                         
             # Check im direction etc. here and if flip or rot required
@@ -73,10 +76,15 @@ class Preprocessor():
             # check shapes and calculate new CoM position
             resize_performed = final_shape / init_shape
             CoM *= resize_performed
+
+            # calculate new spacing
+            spacing_resized = spacing_orig * resize_performed
+            spacings = np.array([spacing_orig, spacing_resized])
                         
-            # add resize and CoM to respective dictionaries
+            # add resize, spacing and CoM to respective dictionaries
             self.resizes_performed[pat_fname.replace('.nii','')] = resize_performed
             self.CoM_targets[pat_fname.replace('.nii','')] = CoM
+            self.all_spacings[pat_fname] = spacings
 
             # finally perform window and level contrast preprocessing on CT -> make this a tuneable feature in future
             # NOTE: Images are forced into WM mode -> i.e. use level = HU + 1024
@@ -88,6 +96,7 @@ class Preprocessor():
         
         self._save_CoM_targets()
         self._save_resizes()
+        self._save_spacings()
 
     def _save_CoM_targets(self):
         with open(join(self.target_dir, "CoM_targets.pkl"), 'wb') as f:
@@ -100,6 +109,10 @@ class Preprocessor():
     def _save_resizes(self):
         with open(join(self.target_dir, "resizes_performed.pkl"), 'wb') as f:
             pickle.dump(self.resizes_performed, f)
+
+    def _save_spacings(self):
+        with open(join(self.target_dir, "spacings.pkl"), 'wb') as f:
+            pickle.dump(self.all_spacings, f)
     
     def _check_fnames(self):
         for pat_fname in self.pat_fnames:
