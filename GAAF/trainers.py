@@ -82,8 +82,7 @@ class Locator_trainer:
             h_target = h_target.to(self.device)
             
             # forward
-            with torch.autograd.set_detect_anomaly(True):
-                output, loss = self._forward_pass(ct_im, h_target, target)
+            output, loss = self._forward_pass(ct_im, h_target, target)
             train_losses.update(loss.item(), self._batch_size(ct_im))
             
             # compute gradients and update parameters
@@ -91,8 +90,7 @@ class Locator_trainer:
             loss = loss / self.iters_to_accumulate
 
             # Native AMP training step
-            with torch.autograd.set_detect_anomaly(True):
-                self.scaler.scale(loss).backward()
+            self.scaler.scale(loss).backward()
             
             # Every iters_to_accumulate, call step() and reset gradients:
             if self.num_iterations % self.iters_to_accumulate == 0:
