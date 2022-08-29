@@ -134,3 +134,5 @@ models/
 # scrapbook
 preprocess.ipynb
 test_preproc.ipynb
+GAAF/get_preprocessed_im_spacing.py
+GAAF/test_graphs.ipynb
