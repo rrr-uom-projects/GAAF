@@ -176,6 +176,7 @@ class Locator_inference_module:
             if self.scale_slice_thickness:
                 self._resample_slice_thickness_ct()
                 self._resample_slice_thickness_mask()
+                self._check_resample()
             
             # now either do cropping and save output or simply return coords
             if self.store_coords:
@@ -248,13 +249,17 @@ class Locator_inference_module:
         origin = self.nii_mask.GetOrigin()
         pixel_grid = sitk.GetArrayFromImage(self.nii_mask)
         # determine scale factor
-        scale_factor = self.desired_slice_thickness / spacing[2]
-        pixel_grid = rescale(pixel_grid, [scale_factor, 1, 1], order=3, preserve_range=True, anti_aliasing=True)
+        scale_factor = spacing[2] / self.desired_slice_thickness
+        pixel_grid = rescale(pixel_grid, [scale_factor, 1, 1], order=0, preserve_range=True, anti_aliasing=False)
         # put it back
         self.nii_mask = sitk.GetImageFromArray(pixel_grid)
         self.nii_mask.SetDirection(direction)
         self.nii_mask.SetOrigin(origin)
         self.nii_mask.SetSpacing([spacing[0], spacing[1], self.desired_slice_thickness])
+
+    def _check_resample(self):
+        assert(self.nii_im.GetSpacing() == self.nii_mask.GetSpacing())
+        assert(self.nii_im.GetSize() == self.nii_mask.GetSize())
 
     def _apply_crop(self, pat_fname=None):
         # crop the original CT down based upon the Locator CoM coords prediction
