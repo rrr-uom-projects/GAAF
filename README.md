@@ -4,7 +4,7 @@
 
 The idea of this framework is that it's a fully generalised version of previous specific location-finding models (headHunter, neckNavigator, etc.). With this you can quickly and easily create new location-specific models in just a few lines of code.
 
-The examples are currently set up to generate a Heart-locating model (heartHunter / tickerTracker).
+The examples are currently set up to generate a brainstem-locating model.
 
 ## Features
 
