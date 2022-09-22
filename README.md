@@ -43,7 +43,3 @@ git clone git@github.com:rrr-uom-projects/GAAF.git
 - A **headHunter** model looking for the centre-of-mass of the brainstem and parotid glands in HN CT scans
 
 ![headHunter_sag](https://user-images.githubusercontent.com/35701423/152800962-62db124e-43fb-4e4a-a1e4-f878198cf716.gif)
-
-- This model is looking for the centre-of-mass of the heart in lung CT scans
-  
-![heartHunter_cor](https://user-images.githubusercontent.com/35701423/152800422-7b194f56-e602-4e35-8837-0898dc63d26d.gif)
