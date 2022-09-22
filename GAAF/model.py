@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .model_parts import conv_module, resize_conv, transpose_conv, attention_module
+from model_parts import conv_module, resize_conv, transpose_conv, attention_module
 
 #####################################################################################
 #################################  Locator model ####################################

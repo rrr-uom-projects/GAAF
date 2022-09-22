@@ -6,7 +6,7 @@ from scipy.stats import norm
 from scipy.ndimage import distance_transform_edt as dist_xfm
 import random
 from os.path import join
-from .utils import getFiles
+from utils import getFiles
 
 class Locator_Dataset(data.Dataset):
     def __init__(self, imagedir, image_inds, CoM_targets, shift_augment=True, flip_augment=True):
@@ -55,6 +55,33 @@ class Locator_Dataset(data.Dataset):
         h_target = self.gaussDist.pdf(dist_map)
         h_target *= (1 / np.max(h_target))
         return {'ct_im': ct_im, 'target': coord_target, 'h_target': h_target[np.newaxis]} # added channels axis here
+
+    def __len__(self):
+        return len(self.availableImages)
+
+class Locator_Testset(data.Dataset):
+    def __init__(self, imagedir, image_inds, CoM_targets):
+        self.imagedir = imagedir
+        self.availableImages = [sorted(getFiles(imagedir))[ind] for ind in image_inds]
+        self.targets = np.array([CoM_targets[image_fname.replace('.npy','')] for image_fname in self.availableImages])
+        self.gaussDist = norm(scale=10)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+           idx = idx.tolist()
+        imageToUse = self.availableImages[idx]
+        ct_im = np.load(join(self.imagedir, imageToUse))
+        ## expecting ct_im to be 4D (3ch, cc, ap, lr)
+        ct_spatial_size = ct_im.shape[1:]
+        coord_target = self.targets[idx].copy()
+        
+        # now convert target to heatmap target
+        # use new off grid heatmap generation
+        t = np.indices(dimensions=ct_spatial_size).astype(float)
+        dist_map = np.sqrt(np.sum([np.power((2*(t[0] - coord_target[0])), 2), np.power((t[1] - coord_target[1]), 2), np.power((t[2] - coord_target[2]), 2)], axis=0))
+        h_target = self.gaussDist.pdf(dist_map)
+        h_target *= (1 / np.max(h_target))
+        return {'ct_im': ct_im, 'target': coord_target, 'h_target': h_target[np.newaxis], "fname": imageToUse} # added channels axis here
 
     def __len__(self):
         return len(self.availableImages)

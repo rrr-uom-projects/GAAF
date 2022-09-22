@@ -5,12 +5,12 @@ from tqdm import tqdm
 import torch
 import SimpleITK as sitk
 import numpy as np
-from skimage.transform import resize
+from skimage.transform import resize, rescale
 from scipy.optimize import curve_fit
 from scipy.stats import norm
 
-from .model import Locator, Attention_Locator 
-from .utils import *
+from model import Locator, Attention_Locator 
+from utils import *
 
 class Locator_inference_module:
     def __init__(self, args, test=False):
@@ -49,6 +49,14 @@ class Locator_inference_module:
             self.out_CoMs_dir = args.out_CoMs_dir
             try_mkdir(self.out_CoMs_dir)
             self.coords = {}
+        # set flag to determine axial resizing of images is required
+        if args.cropped_image_slice_thickness != -23.5:
+            self.scale_slice_thickness = True
+            self.desired_slice_thickness = args.cropped_image_slice_thickness
+        else:
+            scale_slice_thickness = False
+        # set flag to resize the output images if necessary
+        self.resize_if_required = args.resize_if_required
     
     def setup_model(self, args):
         if args.use_attention:
@@ -105,14 +113,19 @@ class Locator_inference_module:
             if flipped:
                 self.rescaled_coords[0] = self.Locator_image_resolution[0] - self.rescaled_coords[0]
             
+            # resize original images to desired slice thickness prior to cropping
+            if self.scale_slice_thickness:
+                self._resample_slice_thickness_ct()
+
             # now either do cropping and save output or simply return coords
             if self.store_coords:
                 # store coords in dictionary
                 self.coords[pat_fname.replace('.nii','')] = self.rescaled_coords
-            
+
             # perform cropping around located CoM and save result
-            self._apply_crop()
-            sitk.WriteImage(self.nii_im, join(self.out_image_dir, pat_fname))
+            if self._apply_crop(pat_fname=pat_fname):
+                self._check_output_size()
+                sitk.WriteImage(self.nii_im, join(self.out_image_dir, pat_fname))
 
         if self.store_coords:
             # save all coords
@@ -158,16 +171,23 @@ class Locator_inference_module:
             # flip the coords back if image and mask were originally flipped
             if flipped:
                 self.rescaled_coords[0] = self.Locator_image_resolution[0] - self.rescaled_coords[0]
-
+       
+            # resize original images to desired slice thickness prior to cropping
+            if self.scale_slice_thickness:
+                self._resample_slice_thickness_ct()
+                self._resample_slice_thickness_mask()
+                self._check_resample()
+            
             # now either do cropping and save output or simply return coords
             if self.store_coords:
                 # store coords in dictionary
                 self.coords[pat_fname.replace('.nii','')] = self.rescaled_coords
-            
+
             # perform cropping around located CoM and save result
-            self._apply_crop(with_mask=True)
-            sitk.WriteImage(self.nii_im, join(self.out_image_dir, pat_fname))
-            sitk.WriteImage(self.nii_mask, join(self.out_mask_dir, pat_fname))
+            if self._apply_crop(pat_fname=pat_fname):
+                self._check_output_size()
+                sitk.WriteImage(self.nii_im, join(self.out_image_dir, pat_fname))
+                sitk.WriteImage(self.nii_mask, join(self.out_mask_dir, pat_fname))
 
         if self.store_coords:
             # save all coords
@@ -197,21 +217,106 @@ class Locator_inference_module:
         with open(join(self.out_CoMs_dir, "coords.pkl"), 'wb') as f:
             pickle.dump(self.coords, f)
 
-    def _apply_crop(self, with_mask=False):
+    def _resample_slice_thickness_ct(self):
+        spacing = self.nii_im.GetSpacing()
+        # is resampling necessary?
+        if spacing[2] > self.desired_slice_thickness - 0.1 and spacing[2] < self.desired_slice_thickness + 0.1:
+            # slice thickness is almost correct already - no need to resample
+            return
+        # resample image to desired slice thickness
+        direction = self.nii_im.GetDirection()
+        origin = self.nii_im.GetOrigin()
+        pixel_grid = sitk.GetArrayFromImage(self.nii_im)
+        # determine scale factor
+        scale_factor = spacing[2] / self.desired_slice_thickness
+        pixel_grid = rescale(pixel_grid, [scale_factor, 1, 1], order=3, preserve_range=True, anti_aliasing=True)
+        # put it back
+        self.nii_im = sitk.GetImageFromArray(pixel_grid)
+        self.nii_im.SetDirection(direction)
+        self.nii_im.SetOrigin(origin)
+        self.nii_im.SetSpacing([spacing[0], spacing[1], self.desired_slice_thickness])
+        # scale coords accordingly
+        self.rescaled_coords[0] *= scale_factor
+    
+    def _resample_slice_thickness_mask(self):
+        spacing = self.nii_mask.GetSpacing()
+        # is resampling necessary? 
+        if spacing[2] > self.desired_slice_thickness - 0.1 and spacing[2] < self.desired_slice_thickness + 0.1:
+            # slice thickness is almost correct already - no need to resample
+            return
+        # resample image to desired slice thickness
+        direction = self.nii_mask.GetDirection()
+        origin = self.nii_mask.GetOrigin()
+        pixel_grid = sitk.GetArrayFromImage(self.nii_mask)
+        # determine scale factor
+        scale_factor = spacing[2] / self.desired_slice_thickness
+        pixel_grid = rescale(pixel_grid, [scale_factor, 1, 1], order=0, preserve_range=True, anti_aliasing=False)
+        # put it back
+        self.nii_mask = sitk.GetImageFromArray(pixel_grid)
+        self.nii_mask.SetDirection(direction)
+        self.nii_mask.SetOrigin(origin)
+        self.nii_mask.SetSpacing([spacing[0], spacing[1], self.desired_slice_thickness])
+
+    def _check_resample(self):
+        assert(self.nii_im.GetSpacing() == self.nii_mask.GetSpacing())
+        assert(self.nii_im.GetSize() == self.nii_mask.GetSize())
+
+    def _apply_crop(self, pat_fname=None):
         # crop the original CT down based upon the Locator CoM coords prediction
         buffers = np.array(self.cropped_image_resolution) // 2
         # Added error case where CoM too close to image boundary -> clip CoM coord to shift sub-volume inside image volume 
         orig_im_shape = np.array(self.nii_im.GetSize())[[2,1,0]]
+        #print(self.rescaled_coords)
         self.rescaled_coords = np.clip(self.rescaled_coords, a_min=buffers, a_max=orig_im_shape-buffers)
+        #print(self.rescaled_coords)
         # determine crop boundaries
         low_crop, hi_crop = self.rescaled_coords - buffers, self.rescaled_coords + buffers
         # cast to int for index slice cropping
         low_crop, hi_crop = np.round(low_crop).astype(int), np.round(hi_crop).astype(int)
-        # slice original image to crop - NOTE: nifti image indexing order is lr, ap, cc
-        self.nii_im = self.nii_im[low_crop[2]:hi_crop[2], low_crop[1]:hi_crop[1], low_crop[0]:hi_crop[0]]
-        if with_mask:
-            self.nii_mask = self.nii_mask[low_crop[2]:hi_crop[2], low_crop[1]:hi_crop[1], low_crop[0]:hi_crop[0]]
+        # determine if resizing is necessary
+        if orig_im_shape[0] < self.cropped_image_resolution[0]:
+            if self.scale_slice_thickness:
+                print(f"Scaled image resolution is smaller than cropped image resolution.\nCheck the derised slice thickness is appropriate for {pat_fname}. SKipping for now ...")
+                return False
+            if self.resize_if_required:
+                print(f"Original image resolution is smaller than cropped image resolution. Resizing image {pat_fname}.")
+                npy_im = sitk.GetArrayFromImage(self.nii_im)
+                npy_mask = sitk.GetArrayFromImage(self.nii_mask)
+                spacing = self.nii_im.GetSpacing()
+                direction = self.nii_im.GetDirection()
+                origin = self.nii_im.GetOrigin()
+                spacing *= np.array([1., 1., orig_im_shape[0] / self.cropped_image_resolution[0]])
+                npy_im = resize(npy_im, output_shape=(self.cropped_image_resolution[0],)+tuple(orig_im_shape[1:]), order=3, preserve_range=True, anti_aliasing=True)
+                npy_mask = resize(npy_mask, output_shape=(self.cropped_image_resolution[0],)+tuple(orig_im_shape[1:]), order=0, preserve_range=True, anti_aliasing=False)
+                self.nii_im = sitk.GetImageFromArray(npy_im)
+                self.nii_im.SetSpacing(spacing)
+                self.nii_im.SetDirection(direction)
+                self.nii_im.SetOrigin(origin)
+                self.nii_mask = sitk.GetImageFromArray(npy_mask)
+                self.nii_mask.SetSpacing(spacing)
+                self.nii_mask.SetDirection(direction)
+                self.nii_mask.SetOrigin(origin)
+                # now perform crop in ap and lr dimensions
+                self.nii_im = self.nii_im[low_crop[2]:hi_crop[2], low_crop[1]:hi_crop[1], :]
+                self.nii_mask = self.nii_mask[low_crop[2]:hi_crop[2], low_crop[1]:hi_crop[1], :]
+            else:
+                print(f"Original image resolution is smaller than cropped image resolution. Resizing not allowed. Skipping {pat_fname}.")
+                return False
+        else:
+            # slice original image to crop - NOTE: nifti image indexing order is lr, ap, cc
+            self.nii_im = self.nii_im[low_crop[2]:hi_crop[2], low_crop[1]:hi_crop[1], low_crop[0]:hi_crop[0]]
+            if self.masks:
+                self.nii_mask = self.nii_mask[low_crop[2]:hi_crop[2], low_crop[1]:hi_crop[1], low_crop[0]:hi_crop[0]]
+        return True
     
+    def _check_output_size(self):
+        # check if output image size is correct
+        if (np.array(self.nii_im.GetSize())[[2,0,1]] != self.cropped_image_resolution).all():
+            raise ValueError(f"Output image size {self.nii_im.GetSize()[[2,0,1]]} is not equal to cropped image size {self.cropped_image_resolution}.")
+        if self.masks and (np.array(self.nii_mask.GetSize())[[2,0,1]] != self.cropped_image_resolution).all():
+            raise ValueError(f"Output mask size {self.nii_mask.GetSize()[[2,0,1]]} is not equal to cropped image size {self.cropped_image_resolution}.")
+        return True
+
     def _check_resolutions(self):
         if not isinstance(self.Locator_image_resolution, tuple) or len(self.Locator_image_resolution) != 3:
             raise ValueError("Locator_image_resolution argument must be 3 space-separated integers -> cc, ap, lr voxels")
@@ -237,8 +342,9 @@ class Locator_inference_module:
     
     def _check_im(self, min_val, fname):
         if min_val < 0:
-            print(f"Expected CT in WM mode (min intensity at 0), instead fname: {fname} min at {min_val} -> adjusting...")
-            return True
+            print(f"WARNING: Image {fname} has negative values! This is not supported by the current preprocessing pipeline.\nPlease ensure that your images are in Hounsfield Units (HU) + 1024 (WM mode) and that the minimum value is >= 0")
+            #print(f"Expected CT in WM mode (min intensity at 0), instead fname: {fname} min at {min_val} -> adjusting...")
+            #return True
         return False
 
 
@@ -253,5 +359,7 @@ def setup_argparse(test_args=None):
     parser.add_argument("--out_mask_dir", type=str, help="The file path where the cropped mask subvolumes will be saved to")
     parser.add_argument("--Locator_image_resolution", nargs="+", default=[64,256,256], help="Image resolution for Locator, pass in cc, ap, lr order")
     parser.add_argument("--cropped_image_resolution", nargs="+", default=[64,128,128], help="The size of the output crop desired (around identified CoM)")
+    parser.add_argument("--cropped_image_slice_thickness", type=float, default=-23.5, help="The axial slice width to rescale the output images to (mm)")
+    parser.add_argument("--resize_if_required", default=True, type=lambda x:str2bool(x), help="Resize the image if it is smaller than the crop region")
     args = parser.parse_args(test_args) # if test args==None then parse_args will fall back on sys.argv
     return args

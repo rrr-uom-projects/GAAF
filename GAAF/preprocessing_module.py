@@ -10,11 +10,12 @@ from skimage.transform import resize
 from scipy.ndimage import center_of_mass
 from tqdm import tqdm
 
-from .utils import getFiles, windowLevelNormalize, try_mkdir
+from utils import getFiles, windowLevelNormalize, try_mkdir
 
 class Preprocessor():
     def __init__(self, args, test=False):
         if test:
+            self.target_ind = 1
             return
         # setup paths
         self.in_image_dir = args.in_image_dir
@@ -32,15 +33,20 @@ class Preprocessor():
         self.CoM_targets = {}
         # setup dictionary for resize performed (for back translation)
         self.resizes_performed = {}
+        # setup dictionary for spacings
+        self.all_spacings = {}
         # set resolution for locator
         self.Locator_image_resolution = tuple([int(res) for res in args.Locator_image_resolution])
         self._check_resolution()
+        # set target index
+        self.target_ind = args.target_ind
 
     def run_preprocessing(self):
-        for pat_idx, (pat_fname, mask_fname) in enumerate(tqdm(zip(self.pat_fnames, self.mask_fnames))):
+        for pat_idx, (pat_fname, mask_fname) in enumerate(tqdm(zip(self.pat_fnames, self.mask_fnames), total=len(self.pat_fnames))):
             # load files
             im = sitk.ReadImage(join(self.in_image_dir, pat_fname))
             mask = sitk.ReadImage(join(self.in_mask_dir, mask_fname))
+            spacing_orig = np.array(im.GetSpacing())[[2,0,1]] # cc ap lr
             assert(im.GetSize() == mask.GetSize())
                         
             # Check im direction etc. here and if flip or rot required
@@ -57,9 +63,9 @@ class Preprocessor():
             self._check_mask(mask)
             
             # calculate CoM
-            CoM = np.array(center_of_mass(np.array((mask == 1), dtype=int))) 
+            CoM = np.array(center_of_mass(np.array((mask == self.target_ind), dtype=int))) 
             
-            # check size of ct here --> resize to 256^2 in-plane and x cc             
+            # check size of ct here --> resize to desired size if required          
             # resampling
             init_shape = np.array(im.shape)
             im = resize(im, output_shape=self.Locator_image_resolution, order=3, preserve_range=True, anti_aliasing=True)
@@ -70,10 +76,15 @@ class Preprocessor():
             # check shapes and calculate new CoM position
             resize_performed = final_shape / init_shape
             CoM *= resize_performed
+
+            # calculate new spacing
+            spacing_resized = spacing_orig * resize_performed
+            spacings = np.array([spacing_orig, spacing_resized])
                         
-            # add resize and CoM to respective dictionaries
+            # add resize, spacing and CoM to respective dictionaries
             self.resizes_performed[pat_fname.replace('.nii','')] = resize_performed
             self.CoM_targets[pat_fname.replace('.nii','')] = CoM
+            self.all_spacings[pat_fname] = spacings
 
             # finally perform window and level contrast preprocessing on CT -> make this a tuneable feature in future
             # NOTE: Images are forced into WM mode -> i.e. use level = HU + 1024
@@ -85,6 +96,7 @@ class Preprocessor():
         
         self._save_CoM_targets()
         self._save_resizes()
+        self._save_spacings()
 
     def _save_CoM_targets(self):
         with open(join(self.target_dir, "CoM_targets.pkl"), 'wb') as f:
@@ -97,6 +109,10 @@ class Preprocessor():
     def _save_resizes(self):
         with open(join(self.target_dir, "resizes_performed.pkl"), 'wb') as f:
             pickle.dump(self.resizes_performed, f)
+
+    def _save_spacings(self):
+        with open(join(self.target_dir, "spacings.pkl"), 'wb') as f:
+            pickle.dump(self.all_spacings, f)
     
     def _check_fnames(self):
         for pat_fname in self.pat_fnames:
@@ -116,15 +132,16 @@ class Preprocessor():
 
     def _check_im(self, min_val, fname):
         if min_val < 0:
-            print(f"Expected CT in WM mode (min intensity at 0), instead fname: {fname} min at {min_val} -> adjusting...")
-            return True
+            print(f"WARNING: Image {fname} has negative values! This is not supported by the current preprocessing pipeline.\nPlease ensure that your images are in Hounsfield Units (HU) + 1024 (WM mode) and that the minimum value is >= 0")
+            #print(f"Expected CT in WM mode (min intensity at 0), instead fname: {fname} min at {min_val} -> adjusting...")
+            #return True
         return False
 
     def _check_mask(self, mask):
         if mask.min() != 0:
-            raise ValueError("Heyo, we've got a mask issue (min != 0)\nGAAF expects binary masks for the targets with background = 0 and foreground stucture = 1...")
-        if mask.max() != 1:
-            raise ValueError("Heyo, we've got a mask issue (max != 1)\nGAAF expects binary masks for the targets with background = 0 and foreground stucture = 1...")
+            raise ValueError("Heyo, we've got a mask issue (min != 0)\nGAAF expects integer masks for the targets with background = 0 and foreground stucture = target_ind ...")
+        if (mask == self.target_ind).any() == False:
+            raise ValueError("Heyo, we've got a mask issue (target_ind not found in mask)\nGAAF expects integer masks for the targets with background = 0 and foreground stucture = target_ind ...")
 
     def _check_resolution(self):
         if not isinstance(self.Locator_image_resolution, tuple) or len(self.Locator_image_resolution) != 3:
@@ -137,5 +154,6 @@ def setup_argparse():
     parser.add_argument("--out_image_dir", type=str, help="The file path where the resampled images will be saved to")
     parser.add_argument("--CoM_targets_dir", type=str, help="The file path where the coordinate targets and resize info will be saved")
     parser.add_argument("--Locator_image_resolution", nargs="+", default=[64,128,128], help="Image resolution for Locator, pass in cc, ap, lr order")
+    parser.add_argument("--target_ind", type=int, default=1, help="The index of the target structure in the mask")
     args = parser.parse_args()
     return args
