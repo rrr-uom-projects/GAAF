@@ -6,6 +6,8 @@ The idea of this framework is that it's a fully generalised version of previous 
 
 The examples are currently set up to generate a brainstem-locating model.
 
+Arxiv paper: https://arxiv.org/abs/2209.06042
+
 ## Features
 
 Quickly and easily train location-finding models in just a few lines of code!
