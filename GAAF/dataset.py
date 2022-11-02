@@ -6,7 +6,8 @@ from scipy.stats import norm
 from scipy.ndimage import distance_transform_edt as dist_xfm
 import random
 from os.path import join
-from utils import getFiles
+
+from .utils import getFiles
 
 class Locator_Dataset(data.Dataset):
     def __init__(self, imagedir, image_inds, CoM_targets, shift_augment=True, flip_augment=True):

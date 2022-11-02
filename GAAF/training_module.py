@@ -14,10 +14,10 @@ import argparse as ap
 import pickle
 from tqdm import tqdm
 
-from model import Locator, Attention_Locator
-from trainers import Locator_trainer
-from dataset import Locator_Dataset, Locator_Testset
-from utils import *
+from .model import Locator, Attention_Locator
+from .trainers import Locator_trainer
+from .dataset import Locator_Dataset, Locator_Testset
+from .utils import *
 
 class train_locator():
     def __init__(self, args):
