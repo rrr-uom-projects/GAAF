@@ -7,7 +7,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import time
-from utils import *
+from .utils import *
 
 #####################################################################################################
 ######################################## Locator trainer ############################################
