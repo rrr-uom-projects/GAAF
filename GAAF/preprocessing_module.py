@@ -10,7 +10,7 @@ from skimage.transform import resize
 from scipy.ndimage import center_of_mass
 from tqdm import tqdm
 
-from utils import getFiles, windowLevelNormalize, try_mkdir
+from .utils import getFiles, windowLevelNormalize, try_mkdir
 
 class Preprocessor():
     def __init__(self, args, test=False):
