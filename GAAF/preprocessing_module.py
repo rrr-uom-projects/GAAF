@@ -56,7 +56,7 @@ class Preprocessor():
 
             # change to numpy
             im = sitk.GetArrayFromImage(im)
-            if self._check_im(min_val=im.min(), fname=pat_fname):
+            if self._check_im(mean_val=im.mean(), fname=pat_fname):
                 im += 1024
             im = np.clip(im, 0, 3024)
             mask = sitk.GetArrayFromImage(mask)
@@ -130,18 +130,18 @@ class Preprocessor():
             if mask_fname not in self.pat_fnames:
                 raise ValueError(f"Whoops, it looks like your images and masks aren't in matching pairs!\n found: {pat_fname} in the mask directory, but not in the image directory...")
 
-    def _check_im(self, min_val, fname):
-        if min_val < 0:
+    def _check_im(self, mean_val, fname):
+        if mean_val < 0:
             print(f"WARNING: Image {fname} has negative values! This is not supported by the current preprocessing pipeline.\nPlease ensure that your images are in Hounsfield Units (HU) + 1024 (WM mode) and that the minimum value is >= 0")
-            #print(f"Expected CT in WM mode (min intensity at 0), instead fname: {fname} min at {min_val} -> adjusting...")
-            #return True
+            print(f"Expected CT in WM mode (mean intensity > 0), instead fname: {fname} mean at {mean_val} -> adjusting...")
+            return True
         return False
 
     def _check_mask(self, mask):
         if mask.min() != 0:
-            raise ValueError("Heyo, we've got a mask issue (min != 0)\nGAAF expects integer masks for the targets with background = 0 and foreground stucture = target_ind ...")
+            raise ValueError("Mask issue (min != 0)\nGAAF expects integer masks for the targets with background = 0 and foreground stucture = target_ind ...")
         if (mask == self.target_ind).any() == False:
-            raise ValueError("Heyo, we've got a mask issue (target_ind not found in mask)\nGAAF expects integer masks for the targets with background = 0 and foreground stucture = target_ind ...")
+            raise ValueError("Mask issue (target_ind not found in mask)\nGAAF expects integer masks for the targets with background = 0 and foreground stucture = target_ind ...")
 
     def _check_resolution(self):
         if not isinstance(self.Locator_image_resolution, tuple) or len(self.Locator_image_resolution) != 3:

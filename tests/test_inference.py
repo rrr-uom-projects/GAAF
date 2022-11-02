@@ -48,6 +48,6 @@ def test_check_im():
     inf_module = Locator_inference_module(args=None, test=True)
     # check expected cases
     # 1. image in true Houndfield units
-    assert(inf_module._check_im(min_val=-1024, fname="test"))
+    assert(inf_module._check_im(mean_val=-823, fname="test"))
     # 2. image in WM mode adjusted HU (+1024)
-    assert(inf_module._check_im(min_val=0, fname="test") == False)
+    assert(inf_module._check_im(mean_val=23, fname="test") == False)

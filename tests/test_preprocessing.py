@@ -45,9 +45,9 @@ def test_check_im():
     preproc_module = Preprocessor(args=None, test=True)
     # check expected cases
     # 1. image in true Houndfield units
-    assert(preproc_module._check_im(min_val=-1024, fname="test"))
+    assert(preproc_module._check_im(mean_val=-823, fname="test"))
     # 2. image in WM mode adjusted HU (+1024)
-    assert(preproc_module._check_im(min_val=0, fname="test") == False)
+    assert(preproc_module._check_im(mean_val=56, fname="test") == False)
 
 def test_check_mask():
     # create class instance
@@ -69,8 +69,7 @@ def test_check_mask():
     mask[mask>0.33] = 2
     mask[mask>0.66] = 3
     mask[2,3,5] = 1
-    with pytest.raises(ValueError):
-        preproc_module._check_mask(mask=mask)
+    preproc_module._check_mask(mask=mask)
     # 4. mask contains multiple structures - but does not contain the target_ind
     mask = np.random.uniform(-1, 1, (16,16,16))
     mask[mask<0] = 0
