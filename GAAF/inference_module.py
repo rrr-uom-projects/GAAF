@@ -108,10 +108,6 @@ class Locator_inference_module:
             # perform inference
             raw_coords = self.inference(im)
             self.rescaled_coords = raw_coords / resize_performed
-
-            # flip the coords back if image and mask were originally flipped
-            if flipped:
-                self.rescaled_coords[0] = self.Locator_image_resolution[0] - self.rescaled_coords[0]
             
             # resize original images to desired slice thickness prior to cropping
             if self.scale_slice_thickness:
@@ -119,8 +115,12 @@ class Locator_inference_module:
 
             # now either do cropping and save output or simply return coords
             if self.store_coords:
+                r_c = self.rescaled_coords.copy()
+                # flip the coords back if image and mask were originally flipped
+                if flipped:
+                    r_c[0] = self.Locator_image_resolution[0] - r_c[0]
                 # store coords in dictionary
-                self.coords[pat_fname.replace('.nii','')] = self.rescaled_coords
+                self.coords[pat_fname.replace('.nii','')] = r_c
 
             # perform cropping around located CoM and save result
             if self._apply_crop(pat_fname=pat_fname):
@@ -167,10 +167,6 @@ class Locator_inference_module:
             # perform inference
             raw_coords = self.inference(im)
             self.rescaled_coords = raw_coords / resize_performed
-            
-            # flip the coords back if image and mask were originally flipped
-            if flipped:
-                self.rescaled_coords[0] = self.Locator_image_resolution[0] - self.rescaled_coords[0]
        
             # resize original images to desired slice thickness prior to cropping
             if self.scale_slice_thickness:
@@ -180,8 +176,12 @@ class Locator_inference_module:
             
             # now either do cropping and save output or simply return coords
             if self.store_coords:
+                r_c = self.rescaled_coords.copy()
+                # flip the coords back if image and mask were originally flipped
+                if flipped:
+                    r_c[0] = self.Locator_image_resolution[0] - r_c[0]
                 # store coords in dictionary
-                self.coords[pat_fname.replace('.nii','')] = self.rescaled_coords
+                self.coords[pat_fname.replace('.nii','')] = r_c
 
             # perform cropping around located CoM and save result
             if self._apply_crop(pat_fname=pat_fname):
