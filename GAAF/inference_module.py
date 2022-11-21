@@ -15,48 +15,48 @@ from .utils import *
 class Locator_inference_module:
     def __init__(self, args, test=False):
         if test:
+            self.output_crop = True
             return
         # setup paths
         self.model_dir = args.model_dir
         self.in_image_dir = args.in_image_dir
-        self.out_image_dir = args.out_image_dir
-        try_mkdir(self.out_image_dir)
-        # determine if masks should be involved
-        self.masks = False
-        if (args.in_mask_dir != "None") != bool(args.out_mask_dir != "None"): # XOR
-            raise ValueError("Make sure to provide both the input and output directories for your masks...")
-        elif args.in_mask_dir != "None":
-            self.masks = True
-            self.in_mask_dir = args.in_mask_dir
-            self.out_mask_dir = args.out_mask_dir
-            try_mkdir(self.out_mask_dir)
         # setup model
         self.device = 'cuda'
         self.setup_model(args)
         # save in/out resolution settings
         self.Locator_image_resolution = tuple([int(res) for res in args.Locator_image_resolution])
-        self.cropped_image_resolution = tuple([int(res) for res in args.cropped_image_resolution])
-        self._check_resolutions()
         # read in image fnames to run inference over
         self.pat_fnames = sorted(getFiles(self.in_image_dir))
-        if self.masks:
-            self.mask_fnames = sorted(getFiles(self.in_mask_dir))
-        self._check_fnames()
-        # determine if coords output is also desired
-        self.store_coords = False
-        if args.out_CoMs_dir != "None":
-            self.store_coords = True
+        # Determine what sort of output is desired
+        # Cropped images (and masks)?
+        self.output_crop = args.output_crop
+        if self.output_crop:
+            self.cropped_image_resolution = tuple([int(res) for res in args.cropped_image_resolution])
+            self.out_image_dir = args.out_image_dir
+            try_mkdir(self.out_image_dir)
+            # determine if masks should be involved
+            self.masks = False
+            if (args.in_mask_dir != None) != bool(args.out_mask_dir != None): # XOR
+                raise ValueError("Make sure to provide both the input and output directories for your masks...")
+            elif args.in_mask_dir != None:
+                self.masks = True
+                self.in_mask_dir = args.in_mask_dir
+                self.mask_fnames = sorted(getFiles(self.in_mask_dir))
+                self._check_fnames()
+                self.out_mask_dir = args.out_mask_dir
+                try_mkdir(self.out_mask_dir)
+            # set flag to determine axial resizing of images is required
+            self.scale_slice_thickness = False
+            if args.cropped_image_slice_thickness != -23.5:
+                self.scale_slice_thickness = True
+                self.desired_slice_thickness = args.cropped_image_slice_thickness
+        self._check_resolutions()
+        # is coords output is desired?
+        self.coords = {}
+        self.output_coords = args.output_coords
+        if self.output_coords:
             self.out_CoMs_dir = args.out_CoMs_dir
             try_mkdir(self.out_CoMs_dir)
-            self.coords = {}
-        # set flag to determine axial resizing of images is required
-        if args.cropped_image_slice_thickness != -23.5:
-            self.scale_slice_thickness = True
-            self.desired_slice_thickness = args.cropped_image_slice_thickness
-        else:
-            scale_slice_thickness = False
-        # set flag to resize the output images if necessary
-        self.resize_if_required = args.resize_if_required
     
     def setup_model(self, args):
         if args.use_attention:
@@ -70,16 +70,12 @@ class Locator_inference_module:
         self.model.eval()
 
     def run_inference(self):
-        if self.masks:
-            self.run_inference_with_masks()
-        else:
-            self.run_inference_no_masks()
-
-    def run_inference_no_masks(self):
         # perform inference for all images in directory            
         for pat_idx, pat_fname in enumerate(tqdm(self.pat_fnames)):
             # carries out the full Locator inference and cropping process on a single CT image
             self.nii_im = sitk.ReadImage(join(self.in_image_dir, pat_fname))
+            if self.masks:
+                self.nii_mask = sitk.ReadImage(join(self.in_mask_dir, pat_fname))
             self.spacing = self.nii_im.GetSpacing()
 
             # Check im direction etc. here and if flip or rot required
@@ -87,71 +83,16 @@ class Locator_inference_module:
             if(np.sign(self.nii_im.GetDirection()[-1]) == 1):
                 flipped = True
                 self.nii_im = sitk.Flip(self.nii_im, [False, False, True])
+                if self.masks:
+                    self.nii_mask = sitk.Flip(self.nii_mask, [False, False, True])
 
             # convert to numpy
             im = sitk.GetArrayFromImage(self.nii_im)
             if self._check_im(mean_val=im.mean(), fname=pat_fname):
                 im += 1024
             im = np.clip(im, 0, 3024)
-
-            # resample to desired size for Locator
-            init_shape = np.array(im.shape)
-            im = resize(im, output_shape=self.Locator_image_resolution, order=3, preserve_range=True, anti_aliasing=True)
-            final_shape = np.array(im.shape)
-            resize_performed = final_shape / init_shape
-
-            # finally perform window and level contrast preprocessing on CT -> make this a tuneable feature in future
-            # NOTE: Images are expected in WM mode -> use level = HU + 1024
-            # ensure to add extra axes for batch and channels
-            im = windowLevelNormalize(im, level=1064, window=1600)[np.newaxis, np.newaxis]
-            
-            # perform inference
-            raw_coords = self.inference(im)
-            self.rescaled_coords = raw_coords / resize_performed
-            
-            # resize original images to desired slice thickness prior to cropping
-            if self.scale_slice_thickness:
-                self._resample_slice_thickness_ct()
-
-            # now either do cropping and save output or simply return coords
-            if self.store_coords:
-                r_c = self.rescaled_coords.copy()
-                # flip the coords back if image and mask were originally flipped
-                if flipped:
-                    r_c[0] = self.Locator_image_resolution[0] - r_c[0]
-                # store coords in dictionary
-                self.coords[pat_fname.replace('.nii','')] = r_c
-
-            # perform cropping around located CoM and save result
-            if self._apply_crop(pat_fname=pat_fname):
-                self._check_output_size()
-                sitk.WriteImage(self.nii_im, join(self.out_image_dir, pat_fname))
-
-        if self.store_coords:
-            # save all coords
-            self._save_coords()
-
-    def run_inference_with_masks(self):
-        # perform inference for all images in directory            
-        for pat_idx, pat_fname in enumerate(tqdm(self.pat_fnames)):
-            # carries out the full Locator inference and cropping process on a single CT image
-            self.nii_im = sitk.ReadImage(join(self.in_image_dir, pat_fname))
-            self.nii_mask = sitk.ReadImage(join(self.in_mask_dir, pat_fname))
-            self.spacing = self.nii_im.GetSpacing()
-
-            # Check im direction etc. here and if flip or rot required
-            flipped = False
-            if(np.sign(self.nii_im.GetDirection()[-1]) == 1):
-                flipped = True
-                self.nii_im = sitk.Flip(self.nii_im, [False, False, True])
-                self.nii_mask = sitk.Flip(self.nii_mask, [False, False, True])
-
-            # convert to numpy
-            im = sitk.GetArrayFromImage(self.nii_im)
-            if self._check_im(mean_val=im.mean(), fname=pat_fname):
-                im += 1024
-            im = np.clip(im, 0, 3024)
-            mask = sitk.GetArrayFromImage(self.nii_mask)
+            if self.masks:
+                mask = sitk.GetArrayFromImage(self.nii_mask)
 
             # resample to desired size for Locator
             init_shape = np.array(im.shape)
@@ -171,25 +112,27 @@ class Locator_inference_module:
             # resize original images to desired slice thickness prior to cropping
             if self.scale_slice_thickness:
                 self._resample_slice_thickness_ct()
-                self._resample_slice_thickness_mask()
+                if self.masks:
+                    self._resample_slice_thickness_mask()
                 self._check_resample()
             
             # now either do cropping and save output or simply return coords
-            if self.store_coords:
-                r_c = self.rescaled_coords.copy()
-                # flip the coords back if image and mask were originally flipped
-                if flipped:
-                    r_c[0] = self.Locator_image_resolution[0] - r_c[0]
-                # store coords in dictionary
-                self.coords[pat_fname.replace('.nii','')] = r_c
+            r_c = self.rescaled_coords.copy()
+            # flip the coords back if image and mask were originally flipped
+            if flipped:
+                r_c[0] = self.Locator_image_resolution[0] - r_c[0]
+            # store coords in dictionary
+            self.coords[pat_fname.replace('.nii','')] = r_c
 
             # perform cropping around located CoM and save result
-            if self._apply_crop(pat_fname=pat_fname):
-                self._check_output_size()
-                sitk.WriteImage(self.nii_im, join(self.out_image_dir, pat_fname))
-                sitk.WriteImage(self.nii_mask, join(self.out_mask_dir, pat_fname))
+            if self.output_crop:
+                if self._apply_crop(pat_fname=pat_fname):
+                    self._check_output_size()
+                    sitk.WriteImage(self.nii_im, join(self.out_image_dir, pat_fname))
+                    if self.masks:
+                        sitk.WriteImage(self.nii_mask, join(self.out_mask_dir, pat_fname))
 
-        if self.store_coords:
+        if self.output_coords:
             # save all coords
             self._save_coords()
 
@@ -278,35 +221,12 @@ class Locator_inference_module:
             if self.scale_slice_thickness:
                 print(f"Scaled image resolution is smaller than cropped image resolution.\nCheck the derised slice thickness is appropriate for {pat_fname}. SKipping for now ...")
                 return False
-            if self.resize_if_required:
-                print(f"Original image resolution is smaller than cropped image resolution. Resizing image {pat_fname}.")
-                npy_im = sitk.GetArrayFromImage(self.nii_im)
-                npy_mask = sitk.GetArrayFromImage(self.nii_mask)
-                spacing = self.nii_im.GetSpacing()
-                direction = self.nii_im.GetDirection()
-                origin = self.nii_im.GetOrigin()
-                spacing *= np.array([1., 1., orig_im_shape[0] / self.cropped_image_resolution[0]])
-                npy_im = resize(npy_im, output_shape=(self.cropped_image_resolution[0],)+tuple(orig_im_shape[1:]), order=3, preserve_range=True, anti_aliasing=True)
-                npy_mask = resize(npy_mask, output_shape=(self.cropped_image_resolution[0],)+tuple(orig_im_shape[1:]), order=0, preserve_range=True, anti_aliasing=False)
-                self.nii_im = sitk.GetImageFromArray(npy_im)
-                self.nii_im.SetSpacing(spacing)
-                self.nii_im.SetDirection(direction)
-                self.nii_im.SetOrigin(origin)
-                self.nii_mask = sitk.GetImageFromArray(npy_mask)
-                self.nii_mask.SetSpacing(spacing)
-                self.nii_mask.SetDirection(direction)
-                self.nii_mask.SetOrigin(origin)
-                # now perform crop in ap and lr dimensions
-                self.nii_im = self.nii_im[low_crop[2]:hi_crop[2], low_crop[1]:hi_crop[1], :]
-                self.nii_mask = self.nii_mask[low_crop[2]:hi_crop[2], low_crop[1]:hi_crop[1], :]
-            else:
-                print(f"Original image resolution is smaller than cropped image resolution. Resizing not allowed. Skipping {pat_fname}.")
-                return False
-        else:
-            # slice original image to crop - NOTE: nifti image indexing order is lr, ap, cc
-            self.nii_im = self.nii_im[low_crop[2]:hi_crop[2], low_crop[1]:hi_crop[1], low_crop[0]:hi_crop[0]]
-            if self.masks:
-                self.nii_mask = self.nii_mask[low_crop[2]:hi_crop[2], low_crop[1]:hi_crop[1], low_crop[0]:hi_crop[0]]
+            print(f"Original image resolution is smaller than cropped image resolution. Resizing not allowed. Skipping {pat_fname}.")
+            return False
+        # slice original image to crop - NOTE: nifti image indexing order is lr, ap, cc
+        self.nii_im = self.nii_im[low_crop[2]:hi_crop[2], low_crop[1]:hi_crop[1], low_crop[0]:hi_crop[0]]
+        if self.masks:
+            self.nii_mask = self.nii_mask[low_crop[2]:hi_crop[2], low_crop[1]:hi_crop[1], low_crop[0]:hi_crop[0]]
         return True
     
     def _check_output_size(self):
@@ -320,8 +240,9 @@ class Locator_inference_module:
     def _check_resolutions(self):
         if not isinstance(self.Locator_image_resolution, tuple) or len(self.Locator_image_resolution) != 3:
             raise ValueError("Locator_image_resolution argument must be 3 space-separated integers -> cc, ap, lr voxels")
-        if not isinstance(self.cropped_image_resolution, tuple) or len(self.cropped_image_resolution) != 3:
-            raise ValueError("cropped_image_resolution argument must be 3 space-separated integers -> cc, ap, lr voxels")
+        if self.output_crop:
+            if not isinstance(self.cropped_image_resolution, tuple) or len(self.cropped_image_resolution) != 3:
+                raise ValueError("cropped_image_resolution argument must be 3 space-separated integers -> cc, ap, lr voxels")
 
     def _check_fnames(self):
         for pat_fname in self.pat_fnames:
@@ -351,15 +272,16 @@ class Locator_inference_module:
 def setup_argparse(test_args=None):
     parser = ap.ArgumentParser(prog="Main inference program for 3D location-finding network \"Locator\"")
     parser.add_argument("--model_dir", type=str, help="The file path where the model weights are saved to", required=True)
-    parser.add_argument("--use_attention", default=True, type=lambda x:str2bool(x), help="Doe the model with attention gates?")
-    parser.add_argument("--in_image_dir", type=str, help="The file path of the folder containing the input CT images", required=True)
-    parser.add_argument("--out_image_dir", type=str, help="The file path where the cropped CT subvolumes will be saved to", required=True)
-    parser.add_argument("--out_CoMs_dir", type=str, default="None", help="The file path where the resultant CoM coordinates will be saved to")
-    parser.add_argument("--in_mask_dir", type=str, help="The file path of the folder containing the input masks")
-    parser.add_argument("--out_mask_dir", type=str, help="The file path where the cropped mask subvolumes will be saved to")
+    parser.add_argument("--use_attention", default=True, type=lambda x:str2bool(x), help="Use the model with attention gates?")
     parser.add_argument("--Locator_image_resolution", nargs="+", default=[64,256,256], help="Image resolution for Locator, pass in cc, ap, lr order")
-    parser.add_argument("--cropped_image_resolution", nargs="+", default=[64,128,128], help="The size of the output crop desired (around identified CoM)")
+    parser.add_argument("--in_image_dir", type=str, help="The file path of the folder containing the input CT images", required=True)
+    parser.add_argument("--in_mask_dir", type=str, help="The file path of the folder containing the (optional) input masks")
+    parser.add_argument("--output_crop", type=lambda x:str2bool(x), help="Output the cropped image and mask?", required=True)
+    parser.add_argument("--out_image_dir", type=str, help="The file path where the cropped CT subvolumes will be saved to (optional)")
+    parser.add_argument("--out_mask_dir", type=str, help="The file path where the cropped mask subvolumes will be saved to (optional)")
+    parser.add_argument("--cropped_image_resolution", nargs="+", default=[64,128,128], help="The size of the output crop desired (around identified CoM) (optional)")
+    parser.add_argument("--output_coords", type=lambda x:str2bool(x), help="Output the coordinates?", required=True)
+    parser.add_argument("--out_CoMs_dir", type=str, help="The file path where the coordinates will be saved to")
     parser.add_argument("--cropped_image_slice_thickness", type=float, default=-23.5, help="The axial slice width to rescale the output images to (mm)")
-    parser.add_argument("--resize_if_required", default=True, type=lambda x:str2bool(x), help="Resize the image if it is smaller than the crop region")
     args = parser.parse_args(test_args) # if test args==None then parse_args will fall back on sys.argv
     return args
