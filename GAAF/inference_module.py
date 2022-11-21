@@ -15,6 +15,7 @@ from .utils import *
 class Locator_inference_module:
     def __init__(self, args, test=False):
         if test:
+            self.output_crop = True
             return
         # setup paths
         self.model_dir = args.model_dir
