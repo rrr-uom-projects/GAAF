@@ -78,7 +78,7 @@ class Preprocessor():
             CoM *= resize_performed
 
             # calculate new spacing
-            spacing_resized = spacing_orig * resize_performed
+            spacing_resized = spacing_orig / resize_performed
             spacings = np.array([spacing_orig, spacing_resized])
                         
             # add resize, spacing and CoM to respective dictionaries

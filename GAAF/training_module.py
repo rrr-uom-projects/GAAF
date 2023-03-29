@@ -124,6 +124,7 @@ class test_locator():
         # setup results array
         results = np.zeros((len(self.test_loader), 3))
         # Start testing
+        self.model.eval()
         for im_idx, sample in enumerate(tqdm(self.test_loader)):
             ct_im = sample['ct_im'].type(torch.FloatTensor)
             target = sample['target'].numpy()[0]
